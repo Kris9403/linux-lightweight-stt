@@ -38,7 +38,10 @@ def handle_utterance(recorder, transcriber, injector, indicator, trailing_space:
     indicator.set("processing")
     text = transcriber.transcribe(pcm)
     if text:
+        log.info("%.1fs audio -> %r", len(pcm) / 16000, text)
         injector.send(text + (" " if trailing_space else ""))
+    else:
+        log.info("%.1fs audio -> (nothing)", len(pcm) / 16000)
     indicator.set("ready")
 
 
@@ -71,6 +74,7 @@ def run() -> int:
     indicator.set("ready")
 
     def on_press() -> None:
+        log.info("hotkey down — listening")
         indicator.set("listening")
         recorder.start()
 
