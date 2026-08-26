@@ -50,6 +50,21 @@ def test_processing_state_does_not_beep(spawned):
     assert _progs(spawned) == ["notify-send"]
 
 
+def test_listening_notification_stays_up_while_held(spawned):
+    Indicator("notify").set("listening")
+    cmd = spawned[0]
+    assert "int:transient:1" not in " ".join(cmd)   # must not auto-dismiss
+    assert "0" == cmd[cmd.index("-t") + 1]           # never expire
+
+
+def test_result_notifications_are_transient(spawned):
+    ind = Indicator("notify")
+    ind.set("ready")
+    ind.set("error")
+    for cmd in spawned:
+        assert "int:transient:1" in " ".join(cmd)
+
+
 def test_popen_is_used_not_run(monkeypatch):
     monkeypatch.setattr(
         indicator.subprocess, "run",
