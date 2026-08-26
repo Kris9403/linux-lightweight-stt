@@ -90,7 +90,3 @@ keeps its default.
 
 The transcriber tests load the real model on the NPU, so they take a couple of
 seconds. `docs/design.md` has the reasoning behind the structure.
-
-Still a work in progress — config, transcription, and text injection are done;
-the audio capture, hotkey listener, status indicator, and the glue that ties
-them together are next.

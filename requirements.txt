@@ -1,0 +1,4 @@
+openvino-genai
+sounddevice
+numpy
+evdev
