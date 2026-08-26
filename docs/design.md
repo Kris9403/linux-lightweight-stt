@@ -68,7 +68,8 @@ udev/99-uinput.rules
 - `load() -> Config` (frozen dataclass). No file → all defaults. Partial file
   merges over defaults. Unknown keys warn, don't crash.
 - Keys: `mode`, `hotkey` (`"KEY_F23"`), `device` (`"NPU"`), `language`
-  (`"en"`), `keyboard` (`"auto"` | explicit `/dev/input/...`), `inject_method`
+  (`"en"`), `keyboard` (`"auto"` | explicit `/dev/input/...`), `audio_device`
+  (None | sounddevice index/name), `inject_method`
   (`"auto"|"ydotool"|"paste"|"xdotool"`), `paste_threshold` (50),
   `indicator` (`"both"`), `trailing_space` (true), `cache_dir`
   (`~/.cache/lightweight-stt/ov`), `min_speech_ms` (300).
@@ -90,7 +91,9 @@ udev/99-uinput.rules
   trailing punctuation stripped, only matched as a whole result.
 
 **audio.py**
-- `Recorder(samplerate=16000)` — one `sd.InputStream`, always open.
+- `Recorder(samplerate=16000, device=None)` — one `sd.InputStream`, always
+  open; `device` (from `cfg.audio_device`) pins a specific mic so a reconnecting
+  Bluetooth headset can't silently steal the default input.
 - `.start()` / `.stop() -> np.ndarray` for hold/toggle: returns the buffered
   utterance and clears the buffer.
 - Internal ring buffer (bounded, e.g. 30 s) so a stuck state can't OOM.

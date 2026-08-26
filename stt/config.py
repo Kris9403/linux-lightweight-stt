@@ -19,6 +19,7 @@ class Config:
     device: str = "NPU"                   # OpenVINO device
     language: str = "en"
     keyboard: str = "auto"               # auto | /dev/input/eventN
+    audio_device: int | str | None = None  # sounddevice index/name; None = system default
     inject_method: str = "auto"          # auto | ydotool | paste | xdotool
     paste_threshold: int = 50            # chars: longer -> clipboard paste path
     indicator: str = "both"             # notify | beep | both | off
