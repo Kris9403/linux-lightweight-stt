@@ -23,7 +23,12 @@ second or two rather than eleven.
 
 The default key is `KEY_F23`, which is what the Copilot key sends. It's dead
 weight on Linux otherwise, it's easy to hold with a thumb, and nothing else is
-bound to it. Any evdev key name works if you'd rather use something else.
+bound to it. Any evdev key name works if you'd rather use something else, and
+`hotkey` can be a list so a laptop key and an external-keyboard key both work.
+
+The default `hybrid` mode gives you both styles at once: hold the key for
+push-to-talk, or quick-tap it to start and tap again to stop. Set `mode` to
+`hold` or `toggle` if you want just one.
 
 A few smaller things it does: text longer than ~50 characters (or mostly
 non-ASCII) is pasted via the clipboard instead of typed key-by-key, and the old
@@ -70,7 +75,8 @@ keeps its default.
 
 | key | default | meaning |
 |---|---|---|
-| `mode` | `hold` | `hold`, `toggle`, or `streaming` (streaming currently acts like toggle) |
+| `mode` | `hybrid` | `hybrid` (hold to talk, or quick-tap to latch until the next tap), `hold`, `toggle`, or `streaming` (acts like toggle for now) |
+| `tap_ms` | `350` | in `hybrid`, a press shorter than this counts as a toggle tap rather than a hold |
 | `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language |

@@ -6,7 +6,8 @@ from stt.config import load
 
 def test_load_without_file_returns_defaults():
     cfg = load(path=Path("/nonexistent/config.toml"))
-    assert cfg.mode == "hold"
+    assert cfg.mode == "hybrid"
+    assert cfg.tap_ms == 350
     assert cfg.hotkey == "KEY_F23"
     assert cfg.device == "NPU"
     assert cfg.language == "en"

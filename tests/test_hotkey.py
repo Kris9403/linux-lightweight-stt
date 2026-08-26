@@ -6,6 +6,13 @@ from stt.hotkey import Listener
 from stt.config import Config
 
 
+@pytest.fixture
+def clock(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(hotkey.time, "monotonic", lambda: now[0])
+    return now
+
+
 class Rec:
     def __init__(self):
         self.events = []
@@ -90,6 +97,39 @@ def test_any_key_in_the_list_triggers():
     lis._handle(F23, 1)          # laptop key
     lis._handle(F23, 0)
     assert rec.events == ["press", "release", "press", "release"]
+
+
+def test_hybrid_long_press_behaves_like_hold(clock):
+    lis, rec = make("hybrid")
+    lis._handle(F23, 1)
+    clock[0] += 1.0                       # held 1 s
+    lis._handle(F23, 0)
+    assert rec.events == ["press", "release"]
+
+
+def test_hybrid_quick_taps_behave_like_toggle(clock):
+    lis, rec = make("hybrid")
+    lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> start
+    assert rec.events == ["press"]
+    clock[0] += 5.0
+    lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> stop
+    assert rec.events == ["press", "release"]
+
+
+def test_hybrid_tap_then_hold_release_stops(clock):
+    lis, rec = make("hybrid")
+    lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> start (latched)
+    lis._handle(F23, 1); clock[0] += 2.0; lis._handle(F23, 0)   # hold -> stop
+    assert rec.events == ["press", "release"]
+
+
+def test_hybrid_ignores_autorepeat_during_hold(clock):
+    lis, rec = make("hybrid")
+    lis._handle(F23, 1)
+    lis._handle(F23, 2); lis._handle(F23, 2)
+    clock[0] += 1.0
+    lis._handle(F23, 0)
+    assert rec.events == ["press", "release"]
 
 
 def test_is_keyboard_filter():

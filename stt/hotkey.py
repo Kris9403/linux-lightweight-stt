@@ -1,10 +1,11 @@
 """Global hotkey listener over every keyboard via evdev.
 
 Watches the configured key(s) — `hotkey` may be one name or a list, so a laptop
-key and an external-keyboard key can both trigger. In HOLD mode a keydown starts
-and a keyup stops; in TOGGLE mode each keydown flips. Autorepeat (value 2) and
-every other keycode are ignored — including the LEFTMETA/LEFTSHIFT the Copilot
-key sends alongside F23.
+key and an external-keyboard key can both trigger. Modes: HOLD (keydown starts,
+keyup stops), TOGGLE (each keydown flips), and HYBRID — hold longer than
+`tap_ms` for push-to-talk, or quick-tap to latch recording until the next tap.
+Autorepeat (value 2) and every other keycode are ignored — including the
+LEFTMETA/LEFTSHIFT the Copilot key sends alongside F23.
 
 The keyboard set is re-scanned every couple of seconds, so plugging or
 unplugging a keyboard while running is picked up without a restart.
@@ -37,10 +38,14 @@ class Listener:
                 raise ValueError(f"unknown hotkey: {name!r}")
         self._names = names
         self.mode = cfg.mode
+        self._tap_max = cfg.tap_ms / 1000
         self._keyboard = cfg.keyboard
         self._on_press = on_press
         self._on_release = on_release
         self._toggle_on = False
+        self._active = False       # hybrid: currently recording
+        self._latched = False      # hybrid: a quick tap opened a toggle session
+        self._down_t = 0.0
         self._sel = selectors.DefaultSelector()
         self._devices: dict[str, evdev.InputDevice] = {}
         self._stop = threading.Event()
@@ -56,10 +61,28 @@ class Listener:
                 self._on_press()
             elif value == 0:
                 self._on_release()
+        elif self.mode == "hybrid":
+            self._handle_hybrid(value)
         else:  # toggle / streaming
             if value == 1:
                 self._toggle_on = not self._toggle_on
                 (self._on_press if self._toggle_on else self._on_release)()
+
+    def _handle_hybrid(self, value: int) -> None:
+        if value == 1:                       # keydown
+            if not self._active:
+                self._active = True
+                self._down_t = time.monotonic()
+                self._on_press()
+        elif value == 0:                     # keyup
+            if not self._active:
+                return
+            held_long = time.monotonic() - self._down_t >= self._tap_max
+            if self._latched or held_long:
+                self._active = self._latched = False
+                self._on_release()
+            else:                            # quick tap -> keep recording
+                self._latched = True
 
     @staticmethod
     def _is_keyboard(dev) -> bool:
