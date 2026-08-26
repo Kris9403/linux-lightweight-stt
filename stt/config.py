@@ -15,7 +15,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 @dataclass(frozen=True)
 class Config:
     mode: str = "hold"                    # hold | toggle | streaming
-    hotkey: str = "KEY_F23"               # evdev KEY_* name, held
+    hotkey: str | list[str] = "KEY_F23"  # evdev KEY_* name, or a list of them
     device: str = "NPU"                   # OpenVINO device
     language: str = "en"
     keyboard: str = "auto"               # auto | /dev/input/eventN

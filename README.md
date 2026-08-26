@@ -71,7 +71,7 @@ keeps its default.
 | key | default | meaning |
 |---|---|---|
 | `mode` | `hold` | `hold`, `toggle`, or `streaming` (streaming currently acts like toggle) |
-| `hotkey` | `KEY_F23` | evdev key name to hold |
+| `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |

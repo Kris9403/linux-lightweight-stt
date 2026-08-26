@@ -31,6 +31,12 @@ def test_partial_file_merges_over_defaults(tmp_path):
     assert cfg.device == "NPU"           # still default
 
 
+def test_hotkey_accepts_a_list(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('hotkey = ["KEY_F23", "KEY_SCROLLLOCK"]\n')
+    assert load(path=f).hotkey == ["KEY_F23", "KEY_SCROLLLOCK"]
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")
