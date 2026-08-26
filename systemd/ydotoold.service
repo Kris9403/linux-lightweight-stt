@@ -1,0 +1,11 @@
+[Unit]
+Description=ydotool user daemon (uinput virtual input for lightweight-stt)
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ydotoold -p %t/.ydotool_socket -P 0660
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
