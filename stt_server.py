@@ -1,5 +1,5 @@
 """
-STT microservice — OpenVINO Whisper Small on NPU.
+STT microservice — the same OpenVINO Whisper transcriber the CLI uses, over HTTP.
 
 Endpoints:
   POST /transcribe   body: raw float32 little-endian PCM @ 16 kHz mono
@@ -7,7 +7,7 @@ Endpoints:
   GET  /health
 """
 from __future__ import annotations
-import io
+
 import subprocess
 import tempfile
 import time
@@ -15,25 +15,27 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 import numpy as np
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import openvino_genai as ov_genai
 
-MODEL_DIR = str(Path(__file__).parent / "whisper-small-ov")
-DEVICE = "NPU"
+from stt.config import load as load_config
+from stt.transcribe import Transcriber
+
+_cfg = load_config()
 SAMPLE_RATE = 16000
-MIN_SAMPLES = 1600       # 0.1 s — discard micro-blips
-MAX_SAMPLES = 30 * SAMPLE_RATE  # 30 s hard cap
+MAX_SAMPLES = 30 * SAMPLE_RATE  # 30 s hard cap on a single request
 
-_pipe: ov_genai.WhisperPipeline | None = None
+_transcriber: Transcriber | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _pipe
-    print(f"[stt] Loading Whisper Small on {DEVICE}…")
-    _pipe = ov_genai.WhisperPipeline(MODEL_DIR, DEVICE)
-    print("[stt] Ready.")
+    global _transcriber
+    print(f"[stt] loading Whisper on {_cfg.device}…")
+    _transcriber = Transcriber(
+        _cfg.model_dir, _cfg.device, _cfg.language, _cfg.cache_dir, _cfg.min_speech_ms
+    )
+    print("[stt] ready.")
     yield
 
 
@@ -53,13 +55,8 @@ def _ffmpeg_to_pcm(data: bytes) -> np.ndarray:
         tmp_path = tmp.name
     try:
         out = subprocess.run(
-            [
-                "ffmpeg", "-y", "-i", tmp_path,
-                "-ar", str(SAMPLE_RATE),
-                "-ac", "1",
-                "-f", "f32le",
-                "-",
-            ],
+            ["ffmpeg", "-y", "-i", tmp_path, "-ar", str(SAMPLE_RATE), "-ac", "1",
+             "-f", "f32le", "-"],
             capture_output=True,
             timeout=15,
         )
@@ -70,20 +67,9 @@ def _ffmpeg_to_pcm(data: bytes) -> np.ndarray:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-def _run_inference(audio: np.ndarray) -> tuple[str, int]:
-    if _pipe is None:
-        raise RuntimeError("Model not loaded")
-    audio = audio[:MAX_SAMPLES]
-    t0 = time.monotonic()
-    result = _pipe.generate(audio.tolist())
-    ms = round((time.monotonic() - t0) * 1000)
-    text = (result.texts[0] if result.texts else "").strip()
-    return text, ms
-
-
 @app.get("/health")
 async def health():
-    return {"status": "ready" if _pipe else "loading", "device": DEVICE}
+    return {"status": "ready" if _transcriber else "loading", "device": _cfg.device}
 
 
 @app.post("/transcribe")
@@ -93,35 +79,33 @@ async def transcribe(request: Request):
     1. Content-Type: application/octet-stream  — raw float32 PCM @ 16 kHz mono
     2. Content-Type: multipart/form-data       — field 'audio' with browser blob
     """
-    if _pipe is None:
-        raise HTTPException(503, "Model still loading")
+    if _transcriber is None:
+        raise HTTPException(503, "model still loading")
 
     content_type = request.headers.get("content-type", "")
 
     if "multipart" in content_type or "form-data" in content_type:
-        # Parse manually to avoid UploadFile overhead on large blobs
         form = await request.form()
         audio_file = form.get("audio")
         if audio_file is None:
-            raise HTTPException(400, "Missing 'audio' field in form data")
+            raise HTTPException(400, "missing 'audio' field in form data")
         raw = await audio_file.read()
         try:
             audio = _ffmpeg_to_pcm(raw)
         except Exception as e:
-            raise HTTPException(422, f"Audio decode failed: {e}")
+            raise HTTPException(422, f"audio decode failed: {e}")
     else:
-        # Raw PCM float32
         raw = await request.body()
         if not raw:
-            raise HTTPException(400, "Empty body")
+            raise HTTPException(400, "empty body")
         audio = np.frombuffer(raw, dtype=np.float32)
 
-    if len(audio) < MIN_SAMPLES:
-        return {"text": "", "ms": 0}
-
+    audio = audio[:MAX_SAMPLES]
     try:
-        text, ms = _run_inference(audio)
+        t0 = time.monotonic()
+        text = _transcriber.transcribe(audio)
+        ms = round((time.monotonic() - t0) * 1000)
     except Exception as e:
-        raise HTTPException(500, f"Inference failed: {e}")
+        raise HTTPException(500, f"inference failed: {e}")
 
     return {"text": text, "ms": ms}
