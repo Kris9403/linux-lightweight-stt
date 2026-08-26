@@ -1,42 +1,55 @@
 """Global hotkey listener over every keyboard via evdev.
 
-Watches only the configured key. In HOLD mode a keydown starts and a keyup
-stops; in TOGGLE mode each keydown flips. Autorepeat (value 2) and every other
-keycode are ignored — including the LEFTMETA/LEFTSHIFT that the Copilot key
-sends alongside F23. Devices are re-scanned if one disappears.
+Watches the configured key(s) — `hotkey` may be one name or a list, so a laptop
+key and an external-keyboard key can both trigger. In HOLD mode a keydown starts
+and a keyup stops; in TOGGLE mode each keydown flips. Autorepeat (value 2) and
+every other keycode are ignored — including the LEFTMETA/LEFTSHIFT the Copilot
+key sends alongside F23.
+
+The keyboard set is re-scanned every couple of seconds, so plugging or
+unplugging a keyboard while running is picked up without a restart.
 """
 from __future__ import annotations
 
 import logging
 import selectors
 import threading
+import time
 
 import evdev
 from evdev import ecodes
 
 log = logging.getLogger(__name__)
 
+_RESCAN_EVERY = 2.0  # seconds
+# uinput devices we (or other tools) create — never watch our own injector
+_VIRTUAL_HINTS = ("ydotoold", "virtual keyboard", "virtual device")
+
 
 class Listener:
     def __init__(self, cfg, on_press, on_release):
-        try:
-            self.hotkey_code = ecodes.ecodes[cfg.hotkey]
-        except KeyError:
-            raise ValueError(f"unknown hotkey: {cfg.hotkey!r}")
+        names = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
+        self.hotkey_codes: set[int] = set()
+        for name in names:
+            try:
+                self.hotkey_codes.add(ecodes.ecodes[name])
+            except KeyError:
+                raise ValueError(f"unknown hotkey: {name!r}")
+        self._names = names
         self.mode = cfg.mode
         self._keyboard = cfg.keyboard
         self._on_press = on_press
         self._on_release = on_release
         self._toggle_on = False
         self._sel = selectors.DefaultSelector()
-        self._devices: dict[int, evdev.InputDevice] = {}
+        self._devices: dict[str, evdev.InputDevice] = {}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
     # --- state machine (unit-tested directly) ---
 
     def _handle(self, code: int, value: int) -> None:
-        if code != self.hotkey_code:
+        if code not in self.hotkey_codes:
             return
         if self.mode == "hold":
             if value == 1:
@@ -50,35 +63,57 @@ class Listener:
 
     @staticmethod
     def _is_keyboard(dev) -> bool:
+        if any(h in dev.name.lower() for h in _VIRTUAL_HINTS):
+            return False
         caps = dev.capabilities()
         return ecodes.EV_KEY in caps and ecodes.KEY_A in caps.get(ecodes.EV_KEY, [])
 
     # --- device I/O ---
 
-    def _discover(self) -> list[evdev.InputDevice]:
-        paths = evdev.list_devices() if self._keyboard == "auto" else [self._keyboard]
-        found = []
-        for path in paths:
+    def _wanted_paths(self) -> list[str]:
+        if self._keyboard != "auto":
+            return [self._keyboard]
+        paths = []
+        for path in evdev.list_devices():
             try:
                 dev = evdev.InputDevice(path)
             except (OSError, PermissionError):
                 continue
-            if self._keyboard != "auto" or self._is_keyboard(dev):
-                found.append(dev)
-        return found
+            if self._is_keyboard(dev):
+                paths.append(path)
+            dev.close()
+        return paths
 
-    def _register_all(self) -> None:
-        for dev in self._discover():
+    def _sync_devices(self) -> None:
+        wanted = set(self._wanted_paths())
+        for path in wanted - self._devices.keys():
+            try:
+                dev = evdev.InputDevice(path)
+            except (OSError, PermissionError):
+                continue
             self._sel.register(dev, selectors.EVENT_READ)
-            self._devices[dev.fd] = dev
+            self._devices[path] = dev
+            log.info("hotkey: + %s (%s)", path, dev.name)
+        for path in self._devices.keys() - wanted:
+            self._drop(self._devices[path])
+
+    def _drop(self, dev) -> None:
+        try:
+            self._sel.unregister(dev)
+        except (KeyError, ValueError):
+            pass
+        self._devices.pop(dev.path, None)
+        dev.close()
 
     def run(self) -> None:
-        self._register_all()
+        self._sync_devices()
         if not self._devices:
             raise RuntimeError(
                 "no readable keyboard devices — is your user in the 'input' group?"
             )
-        log.info("hotkey: watching %d device(s) for %s", len(self._devices), self._key_name())
+        log.info("hotkey: watching %d device(s) for %s",
+                 len(self._devices), "/".join(self._names))
+        next_scan = time.monotonic() + _RESCAN_EVERY
         while not self._stop.is_set():
             for key, _ in self._sel.select(timeout=0.5):
                 dev = key.fileobj
@@ -87,11 +122,12 @@ class Listener:
                         if event.type == ecodes.EV_KEY:
                             self._handle(event.code, event.value)
                 except OSError:
-                    log.warning("hotkey: device %s went away, rescanning", dev.path)
-                    self._sel.unregister(dev)
-                    self._devices.pop(dev.fd, None)
-                    self._register_all()
-        for dev in self._devices.values():
+                    log.warning("hotkey: %s went away", dev.path)
+                    self._drop(dev)
+            if time.monotonic() >= next_scan:
+                self._sync_devices()
+                next_scan = time.monotonic() + _RESCAN_EVERY
+        for dev in list(self._devices.values()):
             dev.close()
 
     def start(self) -> None:
@@ -102,6 +138,3 @@ class Listener:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2)
-
-    def _key_name(self) -> str:
-        return ecodes.KEY.get(self.hotkey_code, str(self.hotkey_code))

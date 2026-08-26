@@ -101,11 +101,12 @@ udev/99-uinput.rules
 
 **hotkey.py**
 - `Listener(cfg, on_press, on_release)` — opens all devices whose caps include
-  `EV_KEY` **and** `KEY_A` (excludes mouse/touchpad BTN-only nodes), `selectors`
-  loop in its own thread. Watches only `cfg.hotkey` (default `KEY_F23`);
-  ignores every other keycode, including the `LEFTMETA`/`LEFTSHIFT` that arrive
-  alongside it from the Copilot key. Handles device disappearance (unplug) by
-  dropping + rescanning.
+  `EV_KEY` **and** `KEY_A` (excludes mouse/touchpad BTN-only nodes and our own
+  `ydotoold`/virtual uinput devices by name), `selectors` loop in its own
+  thread. `cfg.hotkey` may be one name or a list, resolved to a set of
+  keycodes; every other keycode is ignored, including the `LEFTMETA`/`LEFTSHIFT`
+  that arrive alongside F23 from the Copilot key. The keyboard set is re-synced
+  every ~2 s, so plug/unplug is picked up without a restart.
 - HOLD: `on_press` at value==1, `on_release` at value==0, ignore value==2 repeat.
 - TOGGLE: flip an internal flag on each value==1; emit `on_press` / `on_release`
   accordingly. value==0/2 ignored.
