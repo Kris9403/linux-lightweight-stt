@@ -1,0 +1,23 @@
+# virtualenv
+venv/
+.venv/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# model weights (large; regenerate with convert.sh) and NPU compile cache
+whisper-small-ov/
+*.blob
+
+# local user config and runtime state
+config.toml
+*.log
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
