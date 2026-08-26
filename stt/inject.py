@@ -93,7 +93,12 @@ class Injector:
         if self.method == "xdotool":
             subprocess.run(["xdotool", "type", "--clearmodifiers", "--", text], check=True)
         else:
-            subprocess.run(["ydotool", "type", "--", text], check=True)
+            # ydotool defaults to 20ms delay + 20ms hold per key (~40ms/char),
+            # which types visibly slowly. Drop it to near-instant.
+            subprocess.run(
+                ["ydotool", "type", "--key-delay", "0", "--key-hold", "2", "--", text],
+                check=True,
+            )
 
     def _paste(self, text: str) -> None:
         saved = self._clipboard_get()
