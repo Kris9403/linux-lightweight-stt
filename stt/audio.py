@@ -17,8 +17,14 @@ SAMPLE_RATE = 16000
 
 
 class Recorder:
-    def __init__(self, samplerate: int = SAMPLE_RATE, max_seconds: int = 30):
+    def __init__(
+        self,
+        samplerate: int = SAMPLE_RATE,
+        max_seconds: int = 30,
+        device: int | str | None = None,
+    ):
         self.samplerate = samplerate
+        self.device = device
         self._cap = samplerate * max_seconds
         self._chunks: list[np.ndarray] = []
         self._recording = False
@@ -32,6 +38,7 @@ class Recorder:
             samplerate=self.samplerate,
             channels=1,
             dtype="float32",
+            device=self.device,
             callback=self._callback,
         )
         self._stream.start()

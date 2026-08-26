@@ -75,6 +75,7 @@ keeps its default.
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |
+| `audio_device` | unset | mic to record from — a `sounddevice` index or name substring; unset uses the system default |
 | `inject_method` | `auto` | `auto`, `ydotool`, `paste`, or `xdotool` |
 | `paste_threshold` | `50` | characters above which the clipboard path is used |
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |

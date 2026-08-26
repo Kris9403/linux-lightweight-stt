@@ -66,7 +66,7 @@ def run() -> int:
     transcriber = Transcriber(
         cfg.model_dir, cfg.device, cfg.language, cfg.cache_dir, cfg.min_speech_ms
     )
-    recorder = Recorder()
+    recorder = Recorder(device=cfg.audio_device)
     recorder.open()
     indicator.set("ready")
 
