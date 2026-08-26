@@ -22,7 +22,7 @@ release, text lands at the cursor. No cloud, near-zero idle cost.
 
 | Topic | Decision |
 |---|---|
-| Default mode | **HOLD** (push-to-talk). `mode = "hold" \| "toggle" \| "streaming"` in config. `streaming` is accepted but currently behaves as `toggle` until endpointing lands. |
+| Default mode | **HYBRID** — a keydown always starts recording; on keyup, a press longer than `tap_ms` (350 ms) is treated as a hold and stops now, a shorter press latches a toggle session that the next tap ends. `mode = "hybrid" \| "hold" \| "toggle" \| "streaming"`. `streaming` still behaves as `toggle` until endpointing lands. |
 | Default hotkey | `KEY_F23` (code 193), held. This is what the Microsoft Copilot key emits, and it is otherwise unused on Linux. Configurable. |
 | Mode switching | Config file only. No runtime modifier+hotkey cycle (the Copilot key has no spare modifier and its node can't be grabbed). Drops `on_cycle` from `hotkey.py`. |
 | Copilot key chord | The Copilot key emits `LEFTMETA+LEFTSHIFT+F23` from a single keyboard node that also carries normal typing → **no `grab()`**. `hotkey.py` keys purely off `KEY_F23` down/up and ignores the META/SHIFT events. The chord leaks to the compositor; expected harmless (Super released last-with-others, `Super+Shift+F23` unbound). Fallback if it isn't: a `keyd` rule `meta+shift+f23 → f23` — documented, not built. |

@@ -14,7 +14,8 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 @dataclass(frozen=True)
 class Config:
-    mode: str = "hold"                    # hold | toggle | streaming
+    mode: str = "hybrid"                  # hybrid | hold | toggle | streaming
+    tap_ms: int = 350                    # hybrid: press shorter than this = a toggle tap
     hotkey: str | list[str] = "KEY_F23"  # evdev KEY_* name, or a list of them
     device: str = "NPU"                   # OpenVINO device
     language: str = "en"
