@@ -81,10 +81,17 @@ keeps its default.
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |
 
+## HTTP server
+
+`stt_server.py` exposes the same transcriber over HTTP for other tools to call —
+`POST /transcribe` (raw 16 kHz float32 PCM, or a multipart `audio` file in any
+format ffmpeg reads) and `GET /health`. Run it with
+`./venv/bin/uvicorn stt_server:app`.
+
 ## Development
 
 ```
-./venv/bin/pip install pytest
+./venv/bin/pip install -r requirements-dev.txt
 ./venv/bin/python -m pytest tests/
 ```
 
