@@ -1,8 +1,12 @@
 """Status feedback: an in-place desktop notification and/or a short sound.
 
 Both are fire-and-forget (subprocess.Popen, never waited on) so the hotkey
-thread is never blocked. The notification always uses the same replace-id, so
+thread is never blocked. Every notification uses the same replace-id, so
 LISTENING -> PROCESSING -> READY update one notification rather than stacking.
+
+LISTENING and PROCESSING are held on screen (never expire) so "I'm recording"
+is unmistakable while the key is down; READY / ERROR / OFF are transient and
+fade on their own.
 """
 from __future__ import annotations
 
@@ -13,13 +17,13 @@ log = logging.getLogger(__name__)
 
 NOTIFY_ID = 9942
 
-# state -> (notification summary, freedesktop sound event or None)
+# state -> (summary, sound event or None, icon, urgency, sticky)
 _STATES = {
-    "ready": ("Ready", "complete"),
-    "listening": ("Listening…", "message"),
-    "processing": ("Transcribing…", None),
-    "error": ("Speech-to-text error", "dialog-warning"),
-    "off": ("Off", None),
+    "listening":  ("Listening…",   "message",        "audio-input-microphone", "normal",   True),
+    "processing": ("Transcribing…", None,            "content-loading-symbolic", "low",     True),
+    "ready":      ("Ready",         "complete",       "audio-input-microphone", "low",      False),
+    "error":      ("Speech-to-text error", "dialog-warning", "dialog-error",   "critical", False),
+    "off":        ("Off",           None,             "audio-input-microphone", "low",      False),
 }
 
 
@@ -30,12 +34,17 @@ class Indicator:
         self._beep = mode in ("beep", "both")
 
     def set(self, state: str) -> None:
-        summary, sound = _STATES.get(state, (state.title(), None))
+        summary, sound, icon, urgency, sticky = _STATES.get(
+            state, (state.title(), None, "dialog-information", "normal", False)
+        )
         if self._notify:
-            self._spawn(
-                ["notify-send", "-r", str(NOTIFY_ID), "-h", "int:transient:1",
-                 "lightweight-stt", summary]
-            )
+            cmd = ["notify-send", "-r", str(NOTIFY_ID), "-u", urgency, "-i", icon]
+            if sticky:
+                cmd += ["-t", "0"]
+            else:
+                cmd += ["-t", "2000", "-h", "int:transient:1"]
+            cmd += ["lightweight-stt", summary]
+            self._spawn(cmd)
         if self._beep and sound:
             self._spawn(["canberra-gtk-play", "-i", sound])
 
