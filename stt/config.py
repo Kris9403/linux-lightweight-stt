@@ -17,8 +17,9 @@ class Config:
     mode: str = "hybrid"                  # hybrid | hold | toggle | streaming
     tap_ms: int = 350                    # hybrid: press shorter than this = a toggle tap
     hotkey: str | list[str] = "KEY_F23"  # evdev KEY_* name, or a list of them
+    hotkey_language: dict[str, str] = field(default_factory=dict)  # KEY_* -> language
     device: str = "NPU"                   # OpenVINO device
-    language: str = "en"
+    language: str = "en"                  # default for keys without an override
     keyboard: str = "auto"               # auto | /dev/input/eventN
     audio_device: int | str | None = None  # sounddevice index/name; None = system default
     inject_method: str = "auto"          # auto | ydotool | paste | xdotool

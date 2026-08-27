@@ -46,6 +46,18 @@ def test_hotkey_accepts_a_list(tmp_path):
     assert load(path=f).hotkey == ["KEY_F23", "KEY_SCROLLLOCK"]
 
 
+def test_per_hotkey_language_loads(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('hotkey = "KEY_F23"\n[hotkey_language]\nKEY_SCROLLLOCK = "hi"\n')
+    cfg = load(path=f)
+    assert cfg.hotkey_language == {"KEY_SCROLLLOCK": "hi"}
+    assert cfg.language == "en"          # default untouched
+
+
+def test_hotkey_language_defaults_empty():
+    assert load(path=Path("/nonexistent/c.toml")).hotkey_language == {}
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")
