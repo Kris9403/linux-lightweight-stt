@@ -55,13 +55,15 @@ def probe(cfg: Config) -> "Injector":
         if not shutil.which("xdotool"):
             raise NoInjectorError("inject_method=xdotool but xdotool is not installed")
         log.info("injector: xdotool")
-        return Injector("xdotool", can_paste=True, paste_threshold=cfg.paste_threshold)
+        return Injector("xdotool", can_paste=True, paste_threshold=cfg.paste_threshold,
+                        settle_ms=cfg.paste_settle_ms)
 
     if forced in ("ydotool", "paste") or (not forced and _ydotool_usable()):
         if not shutil.which("ydotool"):
             raise NoInjectorError("inject_method=%s but ydotool is not installed" % forced)
         log.info("injector: ydotool (clipboard paste %s)", "on" if have_clipboard else "off")
-        return Injector("ydotool", can_paste=have_clipboard, paste_threshold=cfg.paste_threshold)
+        return Injector("ydotool", can_paste=have_clipboard, paste_threshold=cfg.paste_threshold,
+                        settle_ms=cfg.paste_settle_ms)
 
     raise NoInjectorError(
         "no usable text injector. On Wayland install ydotool and start ydotoold "
@@ -75,10 +77,12 @@ def _mostly_non_ascii(text: str) -> bool:
 
 
 class Injector:
-    def __init__(self, method: str, *, can_paste: bool, paste_threshold: int = 50):
+    def __init__(self, method: str, *, can_paste: bool, paste_threshold: int = 50,
+                 settle_ms: int = 150):
         self.method = method
         self.can_paste = can_paste
         self.paste_threshold = paste_threshold
+        self.settle_ms = settle_ms
 
     def send(self, text: str) -> None:
         text = text.strip()
@@ -108,7 +112,7 @@ class Injector:
                 subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+v"], check=True)
             else:
                 subprocess.run(["ydotool", "key", *_CTRL_V], check=True)
-            time.sleep(0.15)
+            time.sleep(self.settle_ms / 1000)
         finally:
             if saved is not None:
                 self._clipboard_set(saved)

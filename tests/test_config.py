@@ -18,6 +18,8 @@ def test_load_without_file_returns_defaults():
     assert cfg.trailing_space is True
     assert cfg.min_speech_ms == 300
     assert cfg.audio_device is None
+    assert cfg.paste_settle_ms == 150
+    assert cfg.hallucinations == []
 
 
 def test_partial_file_merges_over_defaults(tmp_path):
@@ -30,6 +32,12 @@ def test_partial_file_merges_over_defaults(tmp_path):
     assert cfg.trailing_space is False   # from file
     assert cfg.hotkey == "KEY_F23"       # still default
     assert cfg.device == "NPU"           # still default
+
+
+def test_extra_hallucinations_load_from_file(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('hallucinations = ["Bye.", "fan hum"]\n')
+    assert load(path=f).hallucinations == ["Bye.", "fan hum"]
 
 
 def test_hotkey_accepts_a_list(tmp_path):

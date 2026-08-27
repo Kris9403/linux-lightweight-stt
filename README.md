@@ -84,6 +84,8 @@ keeps its default.
 | `audio_device` | unset | mic to record from — a `sounddevice` index or name substring; unset uses the system default |
 | `inject_method` | `auto` | `auto`, `ydotool`, `paste`, or `xdotool` |
 | `paste_threshold` | `50` | characters above which the clipboard path is used |
+| `paste_settle_ms` | `150` | pause after Ctrl+V before restoring the old clipboard; raise it if a slow app pastes stale text |
+| `hallucinations` | `[]` | extra phrases to drop on top of the built-in silence list (e.g. a noise your fan triggers) |
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |

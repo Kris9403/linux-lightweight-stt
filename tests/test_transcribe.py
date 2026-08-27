@@ -50,6 +50,13 @@ def test_is_hallucination_leaves_real_speech_alone(text):
     assert is_hallucination(text) is False
 
 
+def test_is_hallucination_accepts_a_custom_blocklist():
+    extra = {"fan hum", "air conditioner"}
+    assert is_hallucination("Fan hum.", extra) is True
+    assert is_hallucination("you", extra) is False        # defaults not included
+    assert is_hallucination("hello there", extra) is False
+
+
 # --- integration: real Whisper on the NPU ---
 
 def test_transcriber_returns_empty_for_below_threshold_audio(transcriber):
