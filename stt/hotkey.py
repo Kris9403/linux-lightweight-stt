@@ -1,11 +1,17 @@
 """Global hotkey listener over every keyboard via evdev.
 
-Watches the configured key(s) — `hotkey` may be one name or a list, so a laptop
-key and an external-keyboard key can both trigger. Modes: HOLD (keydown starts,
-keyup stops), TOGGLE (each keydown flips), and HYBRID — hold longer than
-`tap_ms` for push-to-talk, or quick-tap to latch recording until the next tap.
-Autorepeat (value 2) and every other keycode are ignored — including the
-LEFTMETA/LEFTSHIFT the Copilot key sends alongside F23.
+Watches the configured key(s) — `hotkey` may be one name or a list, plus any keys
+named in `hotkey_language`, so a laptop key and an external-keyboard key can both
+trigger. Each key carries a language (its `hotkey_language` entry, or the default
+`language`), passed to the callbacks so one key can dictate English and another
+Hindi.
+
+Modes: HOLD (keydown starts, keyup stops), TOGGLE (each keydown flips), and
+HYBRID — hold longer than `tap_ms` for push-to-talk, or quick-tap to latch
+recording until the next tap. A session is locked to the key that started it:
+events from any other hotkey are ignored until it ends. Autorepeat (value 2) and
+every non-hotkey keycode are ignored — including the LEFTMETA/LEFTSHIFT the
+Copilot key sends alongside F23.
 
 The keyboard set is re-scanned every couple of seconds, so plugging or
 unplugging a keyboard while running is picked up without a restart.
@@ -30,21 +36,26 @@ _VIRTUAL_HINTS = ("ydotoold", "virtual keyboard", "virtual device")
 class Listener:
     def __init__(self, cfg, on_press, on_release):
         names = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
+        names += [n for n in cfg.hotkey_language if n not in names]
+        self._default_lang = cfg.language
         self.hotkey_codes: set[int] = set()
+        self._key_lang: dict[int, str] = {}
         for name in names:
             try:
-                self.hotkey_codes.add(ecodes.ecodes[name])
+                code = ecodes.ecodes[name]
             except KeyError:
                 raise ValueError(f"unknown hotkey: {name!r}")
+            self.hotkey_codes.add(code)
+            self._key_lang[code] = cfg.hotkey_language.get(name, cfg.language)
         self._names = names
         self.mode = cfg.mode
         self._tap_max = cfg.tap_ms / 1000
         self._keyboard = cfg.keyboard
         self._on_press = on_press
         self._on_release = on_release
-        self._toggle_on = False
-        self._active = False       # hybrid: currently recording
-        self._latched = False      # hybrid: a quick tap opened a toggle session
+        self._active_code: int | None = None   # keycode that owns the current session
+        self._active_lang = cfg.language
+        self._latched = False                  # hybrid: a quick tap latched recording
         self._down_t = 0.0
         self._sel = selectors.DefaultSelector()
         self._devices: dict[str, evdev.InputDevice] = {}
@@ -56,33 +67,43 @@ class Listener:
     def _handle(self, code: int, value: int) -> None:
         if code not in self.hotkey_codes:
             return
+        if self._active_code is not None and code != self._active_code:
+            return  # a session is locked to another key
+        lang = self._key_lang.get(code, self._default_lang)
+
         if self.mode == "hold":
             if value == 1:
-                self._on_press()
-            elif value == 0:
-                self._on_release()
+                self._begin(code, lang)
+            elif value == 0 and self._active_code == code:
+                self._end()
         elif self.mode == "hybrid":
-            self._handle_hybrid(value)
+            self._handle_hybrid(code, value, lang)
         else:  # toggle / streaming
             if value == 1:
-                self._toggle_on = not self._toggle_on
-                (self._on_press if self._toggle_on else self._on_release)()
+                self._end() if self._active_code == code else self._begin(code, lang)
 
-    def _handle_hybrid(self, value: int) -> None:
+    def _handle_hybrid(self, code: int, value: int, lang: str) -> None:
         if value == 1:                       # keydown
-            if not self._active:
-                self._active = True
+            if self._active_code is None:
+                self._latched = False
                 self._down_t = time.monotonic()
-                self._on_press()
-        elif value == 0:                     # keyup
-            if not self._active:
-                return
+                self._begin(code, lang)
+        elif value == 0 and self._active_code == code:   # keyup
             held_long = time.monotonic() - self._down_t >= self._tap_max
             if self._latched or held_long:
-                self._active = self._latched = False
-                self._on_release()
+                self._end()
             else:                            # quick tap -> keep recording
                 self._latched = True
+
+    def _begin(self, code: int, lang: str) -> None:
+        self._active_code = code
+        self._active_lang = lang
+        self._on_press(lang)
+
+    def _end(self) -> None:
+        self._active_code = None
+        self._latched = False
+        self._on_release(self._active_lang)
 
     @staticmethod
     def _is_keyboard(dev) -> bool:

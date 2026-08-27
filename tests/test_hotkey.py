@@ -15,18 +15,22 @@ def clock(monkeypatch):
 
 class Rec:
     def __init__(self):
-        self.events = []
+        self.events = []       # ("press"/"release", lang)
 
-    def press(self):
-        self.events.append("press")
+    def press(self, lang):
+        self.events.append(("press", lang))
 
-    def release(self):
-        self.events.append("release")
+    def release(self, lang):
+        self.events.append(("release", lang))
+
+    @property
+    def names(self):
+        return [e[0] for e in self.events]
 
 
-def make(mode="hold", hotkey="KEY_F23"):
+def make(mode="hold", hotkey="KEY_F23", **cfg):
     rec = Rec()
-    lis = Listener(Config(mode=mode, hotkey=hotkey), rec.press, rec.release)
+    lis = Listener(Config(mode=mode, hotkey=hotkey, **cfg), rec.press, rec.release)
     return lis, rec
 
 
@@ -63,7 +67,7 @@ def test_hold_fires_press_on_keydown_release_on_keyup():
     lis, rec = make("hold")
     lis._handle(F23, 1)
     lis._handle(F23, 0)
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
 
 
 def test_hold_ignores_autorepeat():
@@ -71,14 +75,14 @@ def test_hold_ignores_autorepeat():
     lis._handle(F23, 1)
     lis._handle(F23, 2)
     lis._handle(F23, 0)
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
 
 
 def test_other_keycodes_are_ignored():
     lis, rec = make("hold")
     lis._handle(META, 1)
     lis._handle(META, 0)
-    assert rec.events == []
+    assert rec.names == []
 
 
 def test_toggle_alternates_on_each_keydown():
@@ -87,7 +91,7 @@ def test_toggle_alternates_on_each_keydown():
     lis._handle(F23, 0)
     lis._handle(F23, 1)
     lis._handle(F23, 1)
-    assert rec.events == ["press", "release", "press"]
+    assert rec.names == ["press", "release", "press"]
 
 
 def test_any_key_in_the_list_triggers():
@@ -96,7 +100,7 @@ def test_any_key_in_the_list_triggers():
     lis._handle(SLK, 0)
     lis._handle(F23, 1)          # laptop key
     lis._handle(F23, 0)
-    assert rec.events == ["press", "release", "press", "release"]
+    assert rec.names == ["press", "release", "press", "release"]
 
 
 def test_hybrid_long_press_behaves_like_hold(clock):
@@ -104,23 +108,23 @@ def test_hybrid_long_press_behaves_like_hold(clock):
     lis._handle(F23, 1)
     clock[0] += 1.0                       # held 1 s
     lis._handle(F23, 0)
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
 
 
 def test_hybrid_quick_taps_behave_like_toggle(clock):
     lis, rec = make("hybrid")
     lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> start
-    assert rec.events == ["press"]
+    assert rec.names == ["press"]
     clock[0] += 5.0
     lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> stop
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
 
 
 def test_hybrid_tap_then_hold_release_stops(clock):
     lis, rec = make("hybrid")
     lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> start (latched)
     lis._handle(F23, 1); clock[0] += 2.0; lis._handle(F23, 0)   # hold -> stop
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
 
 
 def test_hybrid_ignores_autorepeat_during_hold(clock):
@@ -129,7 +133,50 @@ def test_hybrid_ignores_autorepeat_during_hold(clock):
     lis._handle(F23, 2); lis._handle(F23, 2)
     clock[0] += 1.0
     lis._handle(F23, 0)
-    assert rec.events == ["press", "release"]
+    assert rec.names == ["press", "release"]
+
+
+def test_each_key_carries_its_own_language():
+    lis, rec = make("hold", hotkey="KEY_F23",
+                    hotkey_language={"KEY_SCROLLLOCK": "hi"})
+    lis._handle(F23, 1); lis._handle(F23, 0)
+    lis._handle(SLK, 1); lis._handle(SLK, 0)
+    assert rec.events == [
+        ("press", "en"), ("release", "en"),
+        ("press", "hi"), ("release", "hi"),
+    ]
+
+
+def test_hotkey_language_key_is_listened_for_without_being_in_hotkey():
+    lis, _ = make("hold", hotkey="KEY_F23", hotkey_language={"KEY_SCROLLLOCK": "hi"})
+    assert SLK in lis.hotkey_codes
+
+
+def test_release_language_matches_the_key_that_started(clock):
+    lis, rec = make("hybrid", hotkey="KEY_F23",
+                    hotkey_language={"KEY_SCROLLLOCK": "hi"})
+    lis._handle(SLK, 1)          # start Hindi
+    clock[0] += 1.0
+    lis._handle(SLK, 0)
+    assert rec.events == [("press", "hi"), ("release", "hi")]
+
+
+def test_session_locked_to_its_key_ignores_the_other(clock):
+    lis, rec = make("hybrid", hotkey=["KEY_F23", "KEY_SCROLLLOCK"])
+    lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # tap -> latched, F23 owns it
+    lis._handle(SLK, 1); clock[0] += 0.1; lis._handle(SLK, 0)   # other key -> ignored
+    assert rec.names == ["press"]
+    lis._handle(F23, 1); clock[0] += 0.1; lis._handle(F23, 0)   # same key -> stop
+    assert rec.names == ["press", "release"]
+
+
+def test_toggle_second_press_of_a_different_key_does_not_cross_toggle():
+    lis, rec = make("toggle", hotkey=["KEY_F23", "KEY_SCROLLLOCK"])
+    lis._handle(F23, 1)         # start
+    lis._handle(SLK, 1)         # different key -> ignored, not a stop
+    assert rec.names == ["press"]
+    lis._handle(F23, 1)         # same key -> stop
+    assert rec.names == ["press", "release"]
 
 
 def test_is_keyboard_filter():
