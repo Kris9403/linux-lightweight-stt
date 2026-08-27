@@ -67,12 +67,13 @@ udev/99-uinput.rules
 **config.py**
 - `load() -> Config` (frozen dataclass). No file → all defaults. Partial file
   merges over defaults. Unknown keys warn, don't crash.
-- Keys: `mode`, `hotkey` (`"KEY_F23"`), `device` (`"NPU"`), `language`
-  (`"en"`), `keyboard` (`"auto"` | explicit `/dev/input/...`), `audio_device`
-  (None | sounddevice index/name), `inject_method`
-  (`"auto"|"ydotool"|"paste"|"xdotool"`), `paste_threshold` (50),
-  `indicator` (`"both"`), `trailing_space` (true), `cache_dir`
-  (`~/.cache/lightweight-stt/ov`), `min_speech_ms` (300).
+- Keys: `mode` (`"hybrid"`), `tap_ms` (350), `hotkey` (`"KEY_F23"` or a list),
+  `device` (`"NPU"`), `language` (`"en"`), `keyboard` (`"auto"` | explicit
+  `/dev/input/...`), `audio_device` (None | sounddevice index/name),
+  `inject_method` (`"auto"|"ydotool"|"paste"|"xdotool"`), `paste_threshold`
+  (50), `paste_settle_ms` (150), `indicator` (`"both"`), `trailing_space`
+  (true), `min_speech_ms` (300), `hallucinations` (`[]` — extra silence
+  phrases), `cache_dir` (`~/.cache/lightweight-stt/ov`).
 
 **inject.py**
 - `probe(cfg) -> Injector` — picks a method, logs the choice, raises
@@ -81,14 +82,16 @@ udev/99-uinput.rules
   paste path, restores prior clipboard after paste.
 
 **transcribe.py**
-- `Transcriber(model_dir, device, language, cache_dir, min_speech_ms)` —
-  constructs `WhisperPipeline` with `CACHE_DIR` set.
+- `Transcriber(model_dir, device, language, cache_dir, min_speech_ms,
+  extra_hallucinations=None)` — constructs `WhisperPipeline` with `CACHE_DIR`
+  set.
 - `.transcribe(pcm: np.ndarray) -> str` — float32 mono 16 kHz in. Enforces
   `min` length, feeds the numpy array directly, pins `language`/`task`, filters
   a hallucination blocklist, returns stripped text.
-- Blocklist: normalised exact-match set of known silence artifacts
-  (`"you"`, `"thank you"`, `"thanks for watching"`, …), case-insensitive,
-  trailing punctuation stripped, only matched as a whole result.
+- Blocklist: the built-in normalised set of known silence artifacts (`"you"`,
+  `"thank you"`, `"thanks for watching"`, …) **merged with the normalised
+  `cfg.hallucinations`** entries. Case-insensitive, trailing punctuation
+  stripped, only matched as a whole result.
 
 **audio.py**
 - `Recorder(samplerate=16000, device=None)` — `.start()` opens a **fresh**
