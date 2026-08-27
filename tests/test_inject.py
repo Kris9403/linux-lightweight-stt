@@ -52,22 +52,21 @@ def test_probe_honours_forced_method(fake_env):
     assert inj.method == "xdotool"
 
 
+class _Calls(list):
+    slept: list
+
+
 @pytest.fixture
 def calls(monkeypatch):
-    recorded = []
+    recorded = _Calls()
+    recorded.slept = []
 
-    def fake_run(cmd, **kw):
-        recorded.append(cmd)
-        return subprocess_result()
+    class R:
+        returncode = 0
+        stdout = b""
 
-    def subprocess_result():
-        class R:
-            returncode = 0
-            stdout = b""
-        return R()
-
-    monkeypatch.setattr(inject.subprocess, "run", fake_run)
-    monkeypatch.setattr(inject.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(inject.subprocess, "run", lambda cmd, **kw: (recorded.append(cmd), R())[1])
+    monkeypatch.setattr(inject.time, "sleep", lambda s: recorded.slept.append(s))
     return recorded
 
 
@@ -93,6 +92,12 @@ def test_send_long_text_uses_clipboard_paste_and_restores(calls, monkeypatch):
     assert calls[0] == ["wl-copy", "--", long]            # our text first
     assert calls[-1] == ["wl-copy", "--", "OLD"]          # original restored last
     assert any(c[:2] == ["ydotool", "key"] for c in calls)
+
+
+def test_paste_settle_delay_is_configurable(calls, monkeypatch):
+    monkeypatch.setattr(inject.Injector, "_clipboard_get", staticmethod(lambda: None))
+    inject.Injector("ydotool", can_paste=True, paste_threshold=1, settle_ms=40).send("hello world")
+    assert calls.slept == [0.04]
 
 
 def test_send_non_ascii_heavy_uses_paste(calls, monkeypatch):
