@@ -62,6 +62,23 @@ journalctl --user -u lightweight-stt -f
 
 or just run `./venv/bin/python -m stt.main` in a terminal.
 
+If something doesn't work, run the checker first — it tests the NPU, the
+groups, `ydotoold`, `/dev/uinput`, the model, and the mic, and prints the exact
+command to fix whatever failed:
+
+```
+./venv/bin/python -m stt.doctor
+```
+
+## Other compositors
+
+Built and tested on GNOME Wayland. The moving parts aren't GNOME-specific:
+`ydotool` (uinput) and `wl-clipboard` work the same on KDE Plasma, Sway and
+Hyprland, and `notify-send` works anywhere a notification daemon runs. The only
+GNOME-ish bit is the `canberra-gtk-play` beep, which just no-ops elsewhere
+(`indicator = "notify"` or `"off"` if you don't want it trying). On X11 it falls
+back to `xdotool`. Untested outside GNOME — reports welcome.
+
 ## The model
 
 `whisper-small-ov/` is an INT8 OpenVINO export of `openai/whisper-small`, about
