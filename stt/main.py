@@ -33,15 +33,17 @@ def single_instance_lock(name: str = "lightweight-stt") -> socket.socket:
     return sock
 
 
-def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool) -> None:
+def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
+                     language: str | None = None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
-    text = transcriber.transcribe(pcm)
+    text = transcriber.transcribe(pcm, language=language)
+    tag = f" [{language}]" if language else ""
     if text:
-        log.info("%.1fs audio -> %r", len(pcm) / 16000, text)
+        log.info("%.1fs audio%s -> %r", len(pcm) / 16000, tag, text)
         injector.send(text + (" " if trailing_space else ""))
     else:
-        log.info("%.1fs audio -> (nothing)", len(pcm) / 16000)
+        log.info("%.1fs audio%s -> (nothing)", len(pcm) / 16000, tag)
     indicator.set("ready")
 
 
@@ -73,18 +75,19 @@ def run() -> int:
     recorder = Recorder(device=cfg.audio_device)
     indicator.set("ready")
 
-    def on_press() -> None:
+    def on_press(language: str) -> None:
         try:
-            log.info("hotkey down — listening")
-            indicator.set("listening")
+            log.info("hotkey down — listening [%s]", language)
+            indicator.set("listening", detail=language if language != cfg.language else None)
             recorder.start()
         except Exception:
             log.exception("could not start recording")
             indicator.set("error")
 
-    def on_release() -> None:
+    def on_release(language: str) -> None:
         try:
-            handle_utterance(recorder, transcriber, injector, indicator, cfg.trailing_space)
+            handle_utterance(recorder, transcriber, injector, indicator,
+                             cfg.trailing_space, language=language)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

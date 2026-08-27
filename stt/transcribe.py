@@ -62,13 +62,14 @@ class Transcriber:
         self._pipe = ov_genai.WhisperPipeline(model_dir, device, **kwargs)
         log.info("Whisper ready")
 
-    def transcribe(self, pcm: np.ndarray) -> str:
+    def transcribe(self, pcm: np.ndarray, language: str | None = None) -> str:
         pcm = np.ascontiguousarray(pcm, dtype=np.float32)
         if is_too_short(pcm, self._min_speech_ms):
             return ""
+        lang_token = f"<|{language}|>" if language else self._lang_token
         result = self._pipe.generate(
             pcm,
-            language=self._lang_token,
+            language=lang_token,
             task="transcribe",
             return_timestamps=False,
         )

@@ -50,6 +50,11 @@ def test_processing_state_does_not_beep(spawned):
     assert _progs(spawned) == ["notify-send"]
 
 
+def test_detail_is_appended_to_the_summary(spawned):
+    Indicator("notify").set("listening", detail="hi")
+    assert spawned[0][-1] == "Listening… · hi"
+
+
 def test_listening_notification_stays_up_while_held(spawned):
     Indicator("notify").set("listening")
     cmd = spawned[0]

@@ -16,9 +16,11 @@ class FakeTranscriber:
     def __init__(self, text):
         self.text = text
         self.seen = None
+        self.seen_language = None
 
-    def transcribe(self, pcm):
+    def transcribe(self, pcm, language=None):
         self.seen = pcm
+        self.seen_language = language
         return self.text
 
 
@@ -34,17 +36,17 @@ class FakeIndicator:
     def __init__(self):
         self.states = []
 
-    def set(self, state):
+    def set(self, state, detail=None):
         self.states.append(state)
 
 
-def _run(text, trailing_space=True):
+def _run(text, trailing_space=True, language=None):
     rec = FakeRecorder(np.zeros(16000, dtype=np.float32))
     tr = FakeTranscriber(text)
     inj = FakeInjector()
     ind = FakeIndicator()
-    handle_utterance(rec, tr, inj, ind, trailing_space)
-    return inj, ind
+    handle_utterance(rec, tr, inj, ind, trailing_space, language=language)
+    return inj, ind, tr
 
 
 def test_single_instance_lock_blocks_a_second_acquire():
@@ -55,17 +57,22 @@ def test_single_instance_lock_blocks_a_second_acquire():
 
 
 def test_transcribed_text_is_injected_with_trailing_space():
-    inj, ind = _run("hello world")
+    inj, ind, _ = _run("hello world")
     assert inj.sent == ["hello world "]
     assert ind.states == ["processing", "ready"]
 
 
 def test_trailing_space_can_be_disabled():
-    inj, _ = _run("hello world", trailing_space=False)
+    inj, _, _ = _run("hello world", trailing_space=False)
     assert inj.sent == ["hello world"]
 
 
 def test_empty_transcription_injects_nothing():
-    inj, ind = _run("")
+    inj, ind, _ = _run("")
     assert inj.sent == []
     assert ind.states == ["processing", "ready"]
+
+
+def test_utterance_language_reaches_the_transcriber():
+    _, _, tr = _run("bonjour", language="fr")
+    assert tr.seen_language == "fr"
