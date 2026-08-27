@@ -38,8 +38,8 @@ def _normalise(text: str) -> str:
     return text.strip().lower().rstrip(".!?").strip()
 
 
-def is_hallucination(text: str) -> bool:
-    return _normalise(text) in _SILENCE_ARTIFACTS
+def is_hallucination(text: str, blocklist: frozenset[str] | set[str] = _SILENCE_ARTIFACTS) -> bool:
+    return _normalise(text) in blocklist
 
 
 class Transcriber:
@@ -50,9 +50,13 @@ class Transcriber:
         language: str = "en",
         cache_dir: str | None = None,
         min_speech_ms: int = 300,
+        extra_hallucinations: list[str] | None = None,
     ):
         self._lang_token = f"<|{language}|>"
         self._min_speech_ms = min_speech_ms
+        self._blocklist = _SILENCE_ARTIFACTS | {
+            _normalise(h) for h in (extra_hallucinations or [])
+        }
         kwargs = {"CACHE_DIR": cache_dir} if cache_dir else {}
         log.info("loading Whisper on %s (cache=%s)", device, cache_dir or "off")
         self._pipe = ov_genai.WhisperPipeline(model_dir, device, **kwargs)
@@ -69,6 +73,6 @@ class Transcriber:
             return_timestamps=False,
         )
         text = (result.texts[0] if result.texts else "").strip()
-        if is_hallucination(text):
+        if is_hallucination(text, self._blocklist):
             return ""
         return text

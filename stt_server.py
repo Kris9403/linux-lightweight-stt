@@ -33,7 +33,8 @@ async def lifespan(app: FastAPI):
     global _transcriber
     print(f"[stt] loading Whisper on {_cfg.device}…")
     _transcriber = Transcriber(
-        _cfg.model_dir, _cfg.device, _cfg.language, _cfg.cache_dir, _cfg.min_speech_ms
+        _cfg.model_dir, _cfg.device, _cfg.language, _cfg.cache_dir, _cfg.min_speech_ms,
+        extra_hallucinations=_cfg.hallucinations,
     )
     print("[stt] ready.")
     yield
