@@ -33,10 +33,12 @@ class Indicator:
         self._notify = mode in ("notify", "both")
         self._beep = mode in ("beep", "both")
 
-    def set(self, state: str) -> None:
+    def set(self, state: str, detail: str | None = None) -> None:
         summary, sound, icon, urgency, sticky = _STATES.get(
             state, (state.title(), None, "dialog-information", "normal", False)
         )
+        if detail:
+            summary = f"{summary} · {detail}"
         if self._notify:
             cmd = ["notify-send", "-r", str(NOTIFY_ID), "-u", urgency, "-i", icon]
             if sticky:
