@@ -10,7 +10,7 @@ echo "==> System packages"
 sudo apt-get update
 sudo apt-get install -y \
   libportaudio2 ydotool libnotify-bin wl-clipboard \
-  libcanberra-gtk3-module xdotool ffmpeg
+  libcanberra-gtk3-module gnome-session-canberra xdotool ffmpeg
 
 echo "==> Groups"
 relogin=0
