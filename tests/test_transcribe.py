@@ -75,3 +75,10 @@ def test_transcriber_accepts_float64_input(transcriber):
     # sounddevice can hand us float64; must not raise.
     pcm = np.zeros(16000, dtype=np.float64)
     assert transcriber.transcribe(pcm) == ""
+
+
+def test_per_call_language_switches_without_recompiling(transcriber):
+    # fr -> hi -> default -> en on one pipeline must all run (no NPU error/recompile)
+    silence = np.zeros(16000, dtype=np.float32)
+    for lang in ("fr", "hi", None, "en"):
+        assert isinstance(transcriber.transcribe(silence, language=lang), str)
