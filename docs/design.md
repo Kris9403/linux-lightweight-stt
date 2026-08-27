@@ -69,7 +69,9 @@ udev/99-uinput.rules
 - `load() -> Config` (frozen dataclass). No file → all defaults. Partial file
   merges over defaults. Unknown keys warn, don't crash.
 - Keys: `mode` (`"hybrid"`), `tap_ms` (350), `hotkey` (`"KEY_F23"` or a list),
-  `device` (`"NPU"`), `language` (`"en"`), `keyboard` (`"auto"` | explicit
+  `hotkey_language` (`{}` — `KEY_* -> lang`, keys here are also listened for),
+  `device` (`"NPU"`), `language` (`"en"` — default for keys without an override),
+  `keyboard` (`"auto"` | explicit
   `/dev/input/...`), `audio_device` (None | sounddevice index/name),
   `inject_method` (`"auto"|"ydotool"|"paste"|"xdotool"`), `paste_threshold`
   (50), `paste_settle_ms` (150), `indicator` (`"both"`), `trailing_space`
@@ -86,9 +88,10 @@ udev/99-uinput.rules
 - `Transcriber(model_dir, device, language, cache_dir, min_speech_ms,
   extra_hallucinations=None)` — constructs `WhisperPipeline` with `CACHE_DIR`
   set.
-- `.transcribe(pcm: np.ndarray) -> str` — float32 mono 16 kHz in. Enforces
-  `min` length, feeds the numpy array directly, pins `language`/`task`, filters
-  a hallucination blocklist, returns stripped text.
+- `.transcribe(pcm, language=None) -> str` — float32 mono 16 kHz in. `language`
+  overrides the constructor default for that call (`<|xx|>` token, no NPU
+  recompile). Enforces `min` length, feeds the numpy array directly, pins
+  `language`/`task`, filters a hallucination blocklist, returns stripped text.
 - Blocklist: the built-in normalised set of known silence artifacts (`"you"`,
   `"thank you"`, `"thanks for watching"`, …) **merged with the normalised
   `cfg.hallucinations`** entries. Case-insensitive, trailing punctuation
@@ -112,9 +115,13 @@ udev/99-uinput.rules
   keycodes; every other keycode is ignored, including the `LEFTMETA`/`LEFTSHIFT`
   that arrive alongside F23 from the Copilot key. The keyboard set is re-synced
   every ~2 s, so plug/unplug is picked up without a restart.
-- HOLD: `on_press` at value==1, `on_release` at value==0, ignore value==2 repeat.
-- TOGGLE: flip an internal flag on each value==1; emit `on_press` / `on_release`
-  accordingly. value==0/2 ignored.
+- HOLD: `on_press(lang)` at value==1, `on_release(lang)` at value==0, ignore
+  value==2 repeat.
+- TOGGLE: each value==1 on the owning key starts/stops; value==0/2 ignored.
+- HYBRID: keydown starts; keyup after `< tap_ms` latches, else stops.
+- A session is **locked** to `_active_code`; events from any other hotkey are
+  dropped until it ends. Each key's language (`hotkey_language` or `language`)
+  is stashed on start and handed to `on_release`.
 - No modifier handling, no `on_cycle`.
 
 **indicator.py**
