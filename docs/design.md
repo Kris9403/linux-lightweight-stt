@@ -214,8 +214,13 @@ Resolved against `openvino-genai` 2026.2 during implementation:
   blocklist must include `"you"`.
 - `openvino-genai` alone drives the NPU (no extra runtime pkg needed).
 
-Still open (later phases):
+Resolved during the on-box trial:
 
-- [ ] Does the `ydotool` apt package ship a `ydotoold` systemd unit, or install one.
-- [ ] `canberra-gtk-play` present by default on current Ubuntu GNOME, or needs
-      `libcanberra-gtk3-module` / fallback to `pw-play`.
+- **`ydotool` systemd unit** — on this Ubuntu the package *does* ship
+  `/usr/lib/systemd/user/ydotool.service` and `setup.sh` enables it. Older /
+  non-Ubuntu setups may not, so `setup.sh` checks for it and writes its own
+  `systemd/ydotoold.service` (socket at `%t/.ydotool_socket`) as a fallback.
+- **`canberra-gtk-play`** — *not* shipped by `libcanberra-gtk3-module`; on GNOME
+  it comes from `gnome-session-canberra`, which `setup.sh` now installs
+  explicitly. The beep path already degrades to a no-op if the binary is
+  missing, so no hard dependency.
