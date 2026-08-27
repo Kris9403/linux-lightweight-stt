@@ -91,12 +91,13 @@ udev/99-uinput.rules
   trailing punctuation stripped, only matched as a whole result.
 
 **audio.py**
-- `Recorder(samplerate=16000, device=None)` — one `sd.InputStream`, always
-  open; `device` (from `cfg.audio_device`) pins a specific mic so a reconnecting
-  Bluetooth headset can't silently steal the default input.
-- `.start()` / `.stop() -> np.ndarray` for hold/toggle: returns the buffered
-  utterance and clears the buffer.
-- Internal ring buffer (bounded, e.g. 30 s) so a stuck state can't OOM.
+- `Recorder(samplerate=16000, device=None)` — `.start()` opens a **fresh**
+  `sd.InputStream` and `.stop()` tears it down. A single long-lived stream does
+  not survive suspend/resume or a PipeWire restart (the callback goes silent);
+  a per-utterance stream does. `device` (from `cfg.audio_device`) pins a
+  specific mic so a reconnecting Bluetooth headset can't steal the default.
+- `.stop() -> np.ndarray` returns the buffered utterance, capped at
+  `max_seconds` so a stuck state can't OOM.
 - `on_endpoint: Callable | None` hook left unused for now.
 
 **hotkey.py**

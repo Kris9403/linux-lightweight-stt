@@ -70,13 +70,16 @@ def run() -> int:
         cfg.model_dir, cfg.device, cfg.language, cfg.cache_dir, cfg.min_speech_ms
     )
     recorder = Recorder(device=cfg.audio_device)
-    recorder.open()
     indicator.set("ready")
 
     def on_press() -> None:
-        log.info("hotkey down — listening")
-        indicator.set("listening")
-        recorder.start()
+        try:
+            log.info("hotkey down — listening")
+            indicator.set("listening")
+            recorder.start()
+        except Exception:
+            log.exception("could not start recording")
+            indicator.set("error")
 
     def on_release() -> None:
         try:
