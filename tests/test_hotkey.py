@@ -33,8 +33,13 @@ class Rec:
 
 def make(mode="hold", hotkey="KEY_F23", **cfg):
     rec = Rec()
-    lis = Listener(Config(mode=mode, hotkey=hotkey, **cfg), rec.press, rec.release)
+    rec.muted = []
+    lis = Listener(Config(mode=mode, hotkey=hotkey, **cfg),
+                   rec.press, rec.release, rec.muted.append)
     return lis, rec
+
+
+CAPS = ecodes.ecodes["KEY_CAPSLOCK"]
 
 
 F23 = ecodes.ecodes["KEY_F23"]
@@ -190,6 +195,30 @@ def test_toggle_second_press_of_a_different_key_does_not_cross_toggle():
     lis._handle(SLK, 1)         # different key -> ignored, not a stop
     assert rec.names == ["press"]
     lis._handle(F23, 1)         # same key -> stop
+    assert rec.names == ["press", "release"]
+
+
+def test_unknown_mute_hotkey_raises():
+    with pytest.raises(ValueError):
+        Listener(Config(mute_hotkey="KEY_NOPE"), lambda *_: None, lambda *_: None)
+
+
+def test_mute_hotkey_toggles_and_blocks_dictation():
+    lis, rec = make("hold", hotkey="KEY_F23", mute_hotkey="KEY_CAPSLOCK")
+    lis._handle(CAPS, 1)                       # -> muted
+    assert rec.muted == [True]
+    lis._handle(F23, 1); lis._handle(F23, 0)  # ignored while muted
+    assert rec.names == []
+    lis._handle(CAPS, 1)                       # -> unmuted
+    assert rec.muted == [True, False]
+    lis._handle(F23, 1); lis._handle(F23, 0)
+    assert rec.names == ["press", "release"]
+
+
+def test_muting_mid_session_ends_the_recording():
+    lis, rec = make("hold", hotkey="KEY_F23", mute_hotkey="KEY_CAPSLOCK")
+    lis._handle(F23, 1)                        # recording
+    lis._handle(CAPS, 1)                       # mute -> should end it
     assert rec.names == ["press", "release"]
 
 
