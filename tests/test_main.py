@@ -17,10 +17,12 @@ class FakeTranscriber:
         self.text = text
         self.seen = None
         self.seen_language = None
+        self.seen_translate = None
 
-    def transcribe(self, pcm, language=None):
+    def transcribe(self, pcm, language=None, translate=False):
         self.seen = pcm
         self.seen_language = language
+        self.seen_translate = translate
         return self.text
 
 
@@ -40,12 +42,12 @@ class FakeIndicator:
         self.states.append(state)
 
 
-def _run(text, trailing_space=True, language=None):
+def _run(text, trailing_space=True, language=None, translate=False):
     rec = FakeRecorder(np.zeros(16000, dtype=np.float32))
     tr = FakeTranscriber(text)
     inj = FakeInjector()
     ind = FakeIndicator()
-    handle_utterance(rec, tr, inj, ind, trailing_space, language=language)
+    handle_utterance(rec, tr, inj, ind, trailing_space, language=language, translate=translate)
     return inj, ind, tr
 
 
@@ -76,3 +78,8 @@ def test_empty_transcription_injects_nothing():
 def test_utterance_language_reaches_the_transcriber():
     _, _, tr = _run("bonjour", language="fr")
     assert tr.seen_language == "fr"
+
+
+def test_translate_flag_reaches_the_transcriber():
+    _, _, tr = _run("hello", language="hi", translate=True)
+    assert tr.seen_translate is True

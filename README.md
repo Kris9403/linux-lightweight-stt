@@ -102,6 +102,7 @@ keeps its default.
 | `tap_ms` | `350` | in `hybrid`, a press shorter than this counts as a toggle tap rather than a hold |
 | `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `hotkey_language` | `{}` | table mapping a key to a language, e.g. `[hotkey_language]` then `KEY_SCROLLLOCK = "hi"` — that key dictates in Hindi, everything else uses `language`. Keys here are listened for even if not in `hotkey` |
+| `hotkey_translate` | `[]` | keys whose output is translated to English — e.g. `hotkey_translate = ["KEY_SCROLLLOCK"]` with `KEY_SCROLLLOCK = "hi"` means "speak Hindi, type English" |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language; the default for any key without a `hotkey_language` entry |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |
@@ -110,6 +111,8 @@ keeps its default.
 | `paste_threshold` | `50` | characters above which the clipboard path is used |
 | `paste_settle_ms` | `150` | pause after Ctrl+V before restoring the old clipboard; raise it if a slow app pastes stale text |
 | `hallucinations` | `[]` | extra phrases to drop on top of the built-in silence list (e.g. a noise your fan triggers) |
+| `vocabulary` | `[]` | names / jargon to bias the model toward, e.g. `["Kubernetes", "Anthropic"]`. **GPU/CPU only** — the NPU's fixed decoder context can't take the extra tokens, so it's ignored with a warning there |
+| `num_beams` | `1` | beam-search width; `>1` improves accuracy on hard audio at a speed cost. **GPU/CPU only** — the NPU can't batch beams, so it's forced back to greedy with a warning |
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |

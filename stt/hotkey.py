@@ -37,9 +37,11 @@ class Listener:
     def __init__(self, cfg, on_press, on_release):
         names = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
         names += [n for n in cfg.hotkey_language if n not in names]
+        names += [n for n in cfg.hotkey_translate if n not in names]
         self._default_lang = cfg.language
         self.hotkey_codes: set[int] = set()
         self._key_lang: dict[int, str] = {}
+        self._key_translate: set[int] = set()
         for name in names:
             try:
                 code = ecodes.ecodes[name]
@@ -47,6 +49,8 @@ class Listener:
                 raise ValueError(f"unknown hotkey: {name!r}")
             self.hotkey_codes.add(code)
             self._key_lang[code] = cfg.hotkey_language.get(name, cfg.language)
+            if name in cfg.hotkey_translate:
+                self._key_translate.add(code)
         self._names = names
         self.mode = cfg.mode
         self._tap_max = cfg.tap_ms / 1000
@@ -55,6 +59,7 @@ class Listener:
         self._on_release = on_release
         self._active_code: int | None = None   # keycode that owns the current session
         self._active_lang = cfg.language
+        self._active_translate = False
         self._latched = False                  # hybrid: a quick tap latched recording
         self._down_t = 0.0
         self._sel = selectors.DefaultSelector()
@@ -69,25 +74,24 @@ class Listener:
             return
         if self._active_code is not None and code != self._active_code:
             return  # a session is locked to another key
-        lang = self._key_lang.get(code, self._default_lang)
 
         if self.mode == "hold":
             if value == 1:
-                self._begin(code, lang)
+                self._begin(code)
             elif value == 0 and self._active_code == code:
                 self._end()
         elif self.mode == "hybrid":
-            self._handle_hybrid(code, value, lang)
+            self._handle_hybrid(code, value)
         else:  # toggle / streaming
             if value == 1:
-                self._end() if self._active_code == code else self._begin(code, lang)
+                self._end() if self._active_code == code else self._begin(code)
 
-    def _handle_hybrid(self, code: int, value: int, lang: str) -> None:
+    def _handle_hybrid(self, code: int, value: int) -> None:
         if value == 1:                       # keydown
             if self._active_code is None:
                 self._latched = False
                 self._down_t = time.monotonic()
-                self._begin(code, lang)
+                self._begin(code)
         elif value == 0 and self._active_code == code:   # keyup
             held_long = time.monotonic() - self._down_t >= self._tap_max
             if self._latched or held_long:
@@ -95,15 +99,16 @@ class Listener:
             else:                            # quick tap -> keep recording
                 self._latched = True
 
-    def _begin(self, code: int, lang: str) -> None:
+    def _begin(self, code: int) -> None:
         self._active_code = code
-        self._active_lang = lang
-        self._on_press(lang)
+        self._active_lang = self._key_lang.get(code, self._default_lang)
+        self._active_translate = code in self._key_translate
+        self._on_press(self._active_lang, self._active_translate)
 
     def _end(self) -> None:
         self._active_code = None
         self._latched = False
-        self._on_release(self._active_lang)
+        self._on_release(self._active_lang, self._active_translate)
 
     @staticmethod
     def _is_keyboard(dev) -> bool:

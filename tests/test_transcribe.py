@@ -57,6 +57,24 @@ def test_is_hallucination_accepts_a_custom_blocklist():
     assert is_hallucination("hello there", extra) is False
 
 
+def test_vocab_hotwords_joins_for_gpu_but_drops_on_npu(caplog):
+    from stt.transcribe import vocab_hotwords
+    assert vocab_hotwords(["Krishna", "OpenVINO"], "GPU") == "Krishna OpenVINO"
+    assert vocab_hotwords([], "GPU") is None
+    with caplog.at_level("WARNING"):
+        assert vocab_hotwords(["Krishna"], "NPU") is None
+    assert "ignored on the NPU" in caplog.text
+
+
+def test_resolve_beams_forces_greedy_on_npu(caplog):
+    from stt.transcribe import resolve_beams
+    assert resolve_beams(5, "GPU") == 5
+    assert resolve_beams(1, "NPU") == 1
+    with caplog.at_level("WARNING"):
+        assert resolve_beams(5, "NPU") == 1
+    assert "isn't supported on the NPU" in caplog.text
+
+
 # --- integration: real Whisper on the NPU ---
 
 def test_transcriber_returns_empty_for_below_threshold_audio(transcriber):
@@ -82,3 +100,8 @@ def test_per_call_language_switches_without_recompiling(transcriber):
     silence = np.zeros(16000, dtype=np.float32)
     for lang in ("fr", "hi", None, "en"):
         assert isinstance(transcriber.transcribe(silence, language=lang), str)
+
+
+def test_translate_task_runs_on_the_npu(transcriber):
+    silence = np.zeros(16000, dtype=np.float32)
+    assert isinstance(transcriber.transcribe(silence, language="hi", translate=True), str)
