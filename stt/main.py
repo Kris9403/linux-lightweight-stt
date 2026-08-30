@@ -46,9 +46,11 @@ def history_path() -> Path:
 
 def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                  language: str | None = None, translate: bool = False,
-                 record: Path | None = None, redact: bool = False) -> None:
+                 record: Path | None = None, redact: bool = False,
+                 quiet: bool = False) -> None:
     """Transcribe one audio segment and type it. Shared by push-to-talk and the
-    continuous-mode worker."""
+    continuous-mode worker. `quiet` skips the indicator so the chime can't feed
+    back into the mic between segments."""
     text = transcriber.transcribe(pcm, language=language, translate=translate)
     tag = f" [{language}{'→en' if translate else ''}]" if language else ""
     if text:
@@ -63,7 +65,8 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                          f"{language or ''}{'→en' if translate else ''}\t{text}\n")
     else:
         log.info("%.1fs audio%s -> (nothing)", len(pcm) / 16000, tag)
-    indicator.set("ready")
+    if not quiet:
+        indicator.set("ready")
 
 
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
@@ -113,14 +116,12 @@ def run() -> int:
     segments: queue.Queue = queue.Queue()
 
     def _emit(pcm) -> None:
-        indicator.set("processing")
         try:
             emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
                          language=st["lang"], translate=st["translate"],
-                         record=record, redact=cfg.privacy)
+                         record=record, redact=cfg.privacy, quiet=True)
         except Exception:
             log.exception("segment failed")
-            indicator.set("error")
 
     def on_press(language: str, translate: bool) -> None:
         try:
