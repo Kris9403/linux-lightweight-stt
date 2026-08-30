@@ -118,6 +118,7 @@ keeps its default.
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
+| `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
 
 ## Transcribing a file
 

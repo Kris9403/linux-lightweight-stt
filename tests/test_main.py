@@ -42,13 +42,13 @@ class FakeIndicator:
         self.states.append(state)
 
 
-def _run(text, trailing_space=True, language=None, translate=False, record=None):
+def _run(text, trailing_space=True, language=None, translate=False, record=None, redact=False):
     rec = FakeRecorder(np.zeros(16000, dtype=np.float32))
     tr = FakeTranscriber(text)
     inj = FakeInjector()
     ind = FakeIndicator()
     handle_utterance(rec, tr, inj, ind, trailing_space, language=language,
-                     translate=translate, record=record)
+                     translate=translate, record=record, redact=redact)
     return inj, ind, tr
 
 
@@ -105,3 +105,14 @@ def test_empty_transcription_is_not_recorded(tmp_path):
     hist = tmp_path / "h.log"
     _run("", record=hist)
     assert not hist.exists()
+
+
+def test_redact_keeps_the_transcript_out_of_logs_and_history(tmp_path, caplog):
+    import logging
+    hist = tmp_path / "h.log"
+    with caplog.at_level(logging.INFO, logger="stt"):
+        inj, _, _ = _run("my secret passphrase", record=hist, redact=True)
+    assert inj.sent == ["my secret passphrase "]   # still typed
+    assert not hist.exists()                        # not recorded
+    assert "secret passphrase" not in caplog.text   # not logged
+    assert "20 chars" in caplog.text                # length instead

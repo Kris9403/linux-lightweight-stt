@@ -45,15 +45,18 @@ def history_path() -> Path:
 
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
                      language: str | None = None, translate: bool = False,
-                     record: Path | None = None) -> None:
+                     record: Path | None = None, redact: bool = False) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     text = transcriber.transcribe(pcm, language=language, translate=translate)
     tag = f" [{language}{'→en' if translate else ''}]" if language else ""
     if text:
-        log.info("%.1fs audio%s -> %r", len(pcm) / 16000, tag, text)
+        if redact:
+            log.info("%.1fs audio%s -> %d chars", len(pcm) / 16000, tag, len(text))
+        else:
+            log.info("%.1fs audio%s -> %r", len(pcm) / 16000, tag, text)
         injector.send(text + (" " if trailing_space else ""))
-        if record:
+        if record and not redact:
             with open(record, "a", encoding="utf-8") as fh:
                 fh.write(f"{datetime.now().isoformat(timespec='seconds')}\t"
                          f"{language or ''}{'→en' if translate else ''}\t{text}\n")
@@ -101,13 +104,13 @@ def run() -> int:
             log.exception("could not start recording")
             indicator.set("error")
 
-    record = history_path() if cfg.history else None
+    record = None if cfg.privacy else (history_path() if cfg.history else None)
 
     def on_release(language: str, translate: bool) -> None:
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
-                             record=record)
+                             record=record, redact=cfg.privacy)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")
