@@ -97,10 +97,12 @@ class Injector:
         if self.method == "xdotool":
             subprocess.run(["xdotool", "type", "--clearmodifiers", "--", text], check=True)
         else:
-            # ydotool defaults to 20ms delay + 20ms hold per key (~40ms/char),
-            # which types visibly slowly. Drop it to near-instant.
+            # ydotool's default 20/20 crawls (~40ms/char). 0/2 is too aggressive
+            # though — Shift release races the next key (caps stick) and Space is
+            # too brief for the compositor to see (spaces drop). 4/12 is fast
+            # (~16ms/char) and reliable across rapid consecutive calls.
             subprocess.run(
-                ["ydotool", "type", "--key-delay", "0", "--key-hold", "2", "--", text],
+                ["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", text],
                 check=True,
             )
 
