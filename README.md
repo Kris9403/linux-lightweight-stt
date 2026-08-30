@@ -28,7 +28,10 @@ bound to it. Any evdev key name works if you'd rather use something else, and
 
 The default `hybrid` mode gives you both styles at once: hold the key for
 push-to-talk, or quick-tap it to start and tap again to stop. Set `mode` to
-`hold` or `toggle` if you want just one.
+`hold` or `toggle` if you want just one, or `streaming` for hands-free
+continuous dictation — tap once, keep talking, and each phrase is typed when you
+pause (a plain RMS-energy detector finds the gaps, no extra model). Tap again to
+stop.
 
 The model is multilingual. Set `language` for the whole session, or give a key
 its own language in `hotkey_language` — one key for English, another for Hindi,
@@ -98,7 +101,7 @@ keeps its default.
 
 | key | default | meaning |
 |---|---|---|
-| `mode` | `hybrid` | `hybrid` (hold to talk, or quick-tap to latch until the next tap), `hold`, `toggle`, or `streaming` (acts like toggle for now) |
+| `mode` | `hybrid` | `hybrid` (hold to talk, or quick-tap to latch), `hold`, `toggle`, or `streaming` (tap once, keep talking — each phrase is typed as you pause, tap again to stop) |
 | `tap_ms` | `350` | in `hybrid`, a press shorter than this counts as a toggle tap rather than a hold |
 | `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `hotkey_language` | `{}` | table mapping a key to a language, e.g. `[hotkey_language]` then `KEY_SCROLLLOCK = "hi"` — that key dictates in Hindi, everything else uses `language`. Keys here are listened for even if not in `hotkey` |
@@ -117,6 +120,8 @@ keeps its default.
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |
+| `vad_silence_ms` | `700` | `streaming` only: the pause that ends a phrase |
+| `vad_threshold` | `0.015` | `streaming` only: RMS level counted as speech; raise it in a noisy room |
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
 | `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
 

@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import logging
 import os
+import queue
 import signal
 import socket
 import threading
 from datetime import datetime
 from pathlib import Path
 
-from .audio import Recorder
+from .audio import EndpointDetector, Recorder
 from .config import load
 from .hotkey import Listener
 from .indicator import Indicator
@@ -43,11 +44,11 @@ def history_path() -> Path:
     return d / "history.log"
 
 
-def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
-                     language: str | None = None, translate: bool = False,
-                     record: Path | None = None, redact: bool = False) -> None:
-    pcm = recorder.stop()
-    indicator.set("processing")
+def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
+                 language: str | None = None, translate: bool = False,
+                 record: Path | None = None, redact: bool = False) -> None:
+    """Transcribe one audio segment and type it. Shared by push-to-talk and the
+    continuous-mode worker."""
     text = transcriber.transcribe(pcm, language=language, translate=translate)
     tag = f" [{language}{'→en' if translate else ''}]" if language else ""
     if text:
@@ -63,6 +64,15 @@ def handle_utterance(recorder, transcriber, injector, indicator, trailing_space:
     else:
         log.info("%.1fs audio%s -> (nothing)", len(pcm) / 16000, tag)
     indicator.set("ready")
+
+
+def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
+                     language: str | None = None, translate: bool = False,
+                     record: Path | None = None, redact: bool = False) -> None:
+    pcm = recorder.stop()
+    indicator.set("processing")
+    emit_segment(pcm, transcriber, injector, indicator, trailing_space,
+                 language=language, translate=translate, record=record, redact=redact)
 
 
 def run() -> int:
@@ -91,12 +101,31 @@ def run() -> int:
         extra_hallucinations=cfg.hallucinations, vocabulary=cfg.vocabulary,
         num_beams=cfg.num_beams,
     )
-    recorder = Recorder(device=cfg.audio_device)
+    streaming = cfg.mode == "streaming"
+    vad = EndpointDetector(min_speech_ms=cfg.min_speech_ms,
+                           silence_ms=cfg.vad_silence_ms,
+                           threshold=cfg.vad_threshold) if streaming else None
+    recorder = Recorder(device=cfg.audio_device, vad=vad)
     indicator.set("ready")
+
+    record = None if cfg.privacy else (history_path() if cfg.history else None)
+    st = {"lang": cfg.language, "translate": False}   # current streaming session
+    segments: queue.Queue = queue.Queue()
+
+    def _emit(pcm) -> None:
+        indicator.set("processing")
+        try:
+            emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
+                         language=st["lang"], translate=st["translate"],
+                         record=record, redact=cfg.privacy)
+        except Exception:
+            log.exception("segment failed")
+            indicator.set("error")
 
     def on_press(language: str, translate: bool) -> None:
         try:
             log.info("hotkey down — listening [%s%s]", language, "→en" if translate else "")
+            st["lang"], st["translate"] = language, translate
             detail = (language + ("→en" if translate else "")) if language != cfg.language or translate else None
             indicator.set("listening", detail=detail)
             recorder.start()
@@ -104,9 +133,11 @@ def run() -> int:
             log.exception("could not start recording")
             indicator.set("error")
 
-    record = None if cfg.privacy else (history_path() if cfg.history else None)
-
     def on_release(language: str, translate: bool) -> None:
+        if streaming:
+            segments.put(recorder.stop())      # final tail; worker transcribes it
+            indicator.set("ready")
+            return
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
@@ -115,16 +146,32 @@ def run() -> int:
             log.exception("utterance failed")
             indicator.set("error")
 
+    if streaming:
+        recorder.on_endpoint = lambda: segments.put(recorder.take())
+
     def on_mute(muted: bool) -> None:
         indicator.set("off" if muted else "ready")
 
     listener = Listener(cfg, on_press, on_release, on_mute)
     stop = threading.Event()
+
+    def worker() -> None:
+        while not stop.is_set():
+            try:
+                pcm = segments.get(timeout=0.3)
+            except queue.Empty:
+                continue
+            if pcm is not None and pcm.size:
+                _emit(pcm)
+
+    if streaming:
+        threading.Thread(target=worker, name="segments", daemon=True).start()
+
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
 
     listener.start()
-    log.info("ready — hold %s to talk", cfg.hotkey)
+    log.info("ready — %s %s to talk", "tap" if streaming else "hold", cfg.hotkey)
     try:
         stop.wait()
     finally:
