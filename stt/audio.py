@@ -54,16 +54,19 @@ class EndpointDetector:
 
 class Recorder:
     def __init__(self, samplerate: int = SAMPLE_RATE, max_seconds: int = 30,
-                 device: int | str | None = None):
+                 device: int | str | None = None, vad: "EndpointDetector | None" = None):
         self.samplerate = samplerate
         self.device = device
         self._cap = samplerate * max_seconds
         self._chunks: list[np.ndarray] = []
         self._stream = None
+        self._vad = vad
         self.on_endpoint: Callable[[], None] | None = None
 
     def start(self) -> None:
         self._chunks.clear()
+        if self._vad is not None:
+            self._vad.reset()
         self._teardown()
         import sounddevice as sd
 
@@ -76,13 +79,21 @@ class Recorder:
         )
         self._stream.start()
 
-    def stop(self) -> np.ndarray:
-        self._teardown()
+    def _drain(self) -> np.ndarray:
         if not self._chunks:
             return np.zeros(0, dtype=np.float32)
         pcm = np.concatenate(self._chunks)
         self._chunks.clear()
         return pcm[-self._cap:]
+
+    def take(self) -> np.ndarray:
+        """Return the audio buffered so far and clear it — the stream keeps
+        running. Used for continuous mode between endpoints."""
+        return self._drain()
+
+    def stop(self) -> np.ndarray:
+        self._teardown()
+        return self._drain()
 
     def close(self) -> None:
         self._teardown()
@@ -99,4 +110,7 @@ class Recorder:
     def _callback(self, indata, frames, time_info, status) -> None:
         if status:
             log.warning("audio stream status: %s", status)
-        self._chunks.append(np.asarray(indata, dtype=np.float32).reshape(-1).copy())
+        chunk = np.asarray(indata, dtype=np.float32).reshape(-1).copy()
+        self._chunks.append(chunk)
+        if self._vad is not None and self._vad.feed(chunk) and self.on_endpoint:
+            self.on_endpoint()

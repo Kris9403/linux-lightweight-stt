@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from stt import audio
-from stt.audio import Recorder
+from stt.audio import EndpointDetector, Recorder
 
 
 def _frame(n, value=0.1):
@@ -85,3 +85,32 @@ def test_buffer_is_capped_at_max_seconds():
     for _ in range(5):
         rec._callback(_frame(1000), 1000, None, None)
     assert rec.stop().shape == (2000,)
+
+
+def test_take_returns_buffer_without_stopping_the_stream():
+    rec = Recorder()
+    rec.start()
+    rec._callback(_frame(1600), 1600, None, None)
+    seg = rec.take()
+    assert seg.shape == (1600,)
+    assert FakeStream.instances[-1].closed is False   # still recording
+    rec._callback(_frame(800), 800, None, None)
+    assert rec.take().shape == (800,)                 # buffer was cleared
+
+
+def test_vad_endpoint_fires_the_callback_and_only_with_vad():
+    fired = []
+    rec = Recorder(vad=EndpointDetector(samplerate=16000, silence_ms=500, min_speech_ms=200))
+    rec.on_endpoint = lambda: fired.append(True)
+    rec.start()
+    for _ in range(4):
+        rec._callback(_frame(1600, 0.1), 1600, None, None)   # speech
+    for _ in range(6):
+        rec._callback(_frame(1600, 0.0), 1600, None, None)   # silence
+    assert fired == [True]
+
+    plain = Recorder()
+    plain.on_endpoint = lambda: fired.append("no")
+    plain.start()
+    plain._callback(_frame(1600, 0.0), 1600, None, None)
+    assert fired == [True]
