@@ -103,6 +103,7 @@ keeps its default.
 | `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `hotkey_language` | `{}` | table mapping a key to a language, e.g. `[hotkey_language]` then `KEY_SCROLLLOCK = "hi"` — that key dictates in Hindi, everything else uses `language`. Keys here are listened for even if not in `hotkey` |
 | `hotkey_translate` | `[]` | keys whose output is translated to English — e.g. `hotkey_translate = ["KEY_SCROLLLOCK"]` with `KEY_SCROLLLOCK = "hi"` means "speak Hindi, type English" |
+| `mute_hotkey` | `""` | a key that pauses/resumes the whole listener (indicator goes to "off"). Pick one you don't dictate with, e.g. `"KEY_CAPSLOCK"` |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language; the default for any key without a `hotkey_language` entry |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |

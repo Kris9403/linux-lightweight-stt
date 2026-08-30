@@ -19,6 +19,7 @@ class Config:
     hotkey: str | list[str] = "KEY_F23"  # evdev KEY_* name, or a list of them
     hotkey_language: dict[str, str] = field(default_factory=dict)  # KEY_* -> language
     hotkey_translate: list[str] = field(default_factory=list)      # KEY_* that translate to English
+    mute_hotkey: str = ""                # KEY_* that pauses/resumes the listener ("" = off)
     device: str = "NPU"                   # OpenVINO device
     language: str = "en"                  # default for keys without an override
     keyboard: str = "auto"               # auto | /dev/input/eventN

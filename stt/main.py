@@ -94,7 +94,10 @@ def run() -> int:
             log.exception("utterance failed")
             indicator.set("error")
 
-    listener = Listener(cfg, on_press, on_release)
+    def on_mute(muted: bool) -> None:
+        indicator.set("off" if muted else "ready")
+
+    listener = Listener(cfg, on_press, on_release, on_mute)
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())

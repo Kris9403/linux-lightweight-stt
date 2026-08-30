@@ -34,7 +34,7 @@ _VIRTUAL_HINTS = ("ydotoold", "virtual keyboard", "virtual device")
 
 
 class Listener:
-    def __init__(self, cfg, on_press, on_release):
+    def __init__(self, cfg, on_press, on_release, on_mute=None):
         names = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
         names += [n for n in cfg.hotkey_language if n not in names]
         names += [n for n in cfg.hotkey_translate if n not in names]
@@ -57,6 +57,15 @@ class Listener:
         self._keyboard = cfg.keyboard
         self._on_press = on_press
         self._on_release = on_release
+        self._on_mute = on_mute or (lambda _muted: None)
+        self._muted = False
+        if cfg.mute_hotkey:
+            try:
+                self._mute_code: int | None = ecodes.ecodes[cfg.mute_hotkey]
+            except KeyError:
+                raise ValueError(f"unknown mute_hotkey: {cfg.mute_hotkey!r}")
+        else:
+            self._mute_code = None
         self._active_code: int | None = None   # keycode that owns the current session
         self._active_lang = cfg.language
         self._active_translate = False
@@ -70,7 +79,11 @@ class Listener:
     # --- state machine (unit-tested directly) ---
 
     def _handle(self, code: int, value: int) -> None:
-        if code not in self.hotkey_codes:
+        if code == self._mute_code:
+            if value == 1:
+                self._toggle_mute()
+            return
+        if self._muted or code not in self.hotkey_codes:
             return
         if self._active_code is not None and code != self._active_code:
             return  # a session is locked to another key
@@ -98,6 +111,13 @@ class Listener:
                 self._end()
             else:                            # quick tap -> keep recording
                 self._latched = True
+
+    def _toggle_mute(self) -> None:
+        self._muted = not self._muted
+        if self._muted and self._active_code is not None:
+            self._end()
+        log.info("hotkey: %s", "muted" if self._muted else "unmuted")
+        self._on_mute(self._muted)
 
     def _begin(self, code: int) -> None:
         self._active_code = code
