@@ -16,12 +16,15 @@ def clock(monkeypatch):
 class Rec:
     def __init__(self):
         self.events = []       # ("press"/"release", lang)
+        self.calls = []        # full (name, lang, translate)
 
-    def press(self, lang):
+    def press(self, lang, translate=False):
         self.events.append(("press", lang))
+        self.calls.append(("press", lang, translate))
 
-    def release(self, lang):
+    def release(self, lang, translate=False):
         self.events.append(("release", lang))
+        self.calls.append(("release", lang, translate))
 
     @property
     def names(self):
@@ -150,6 +153,17 @@ def test_each_key_carries_its_own_language():
 def test_hotkey_language_key_is_listened_for_without_being_in_hotkey():
     lis, _ = make("hold", hotkey="KEY_F23", hotkey_language={"KEY_SCROLLLOCK": "hi"})
     assert SLK in lis.hotkey_codes
+
+
+def test_translate_key_flags_the_utterance_and_is_listened_for():
+    lis, rec = make("hold", hotkey="KEY_F23", hotkey_translate=["KEY_SCROLLLOCK"])
+    assert SLK in lis.hotkey_codes
+    lis._handle(F23, 1); lis._handle(F23, 0)
+    lis._handle(SLK, 1); lis._handle(SLK, 0)
+    assert rec.calls == [
+        ("press", "en", False), ("release", "en", False),
+        ("press", "en", True), ("release", "en", True),
+    ]
 
 
 def test_release_language_matches_the_key_that_started(clock):

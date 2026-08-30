@@ -82,3 +82,8 @@ def test_per_call_language_switches_without_recompiling(transcriber):
     silence = np.zeros(16000, dtype=np.float32)
     for lang in ("fr", "hi", None, "en"):
         assert isinstance(transcriber.transcribe(silence, language=lang), str)
+
+
+def test_translate_task_runs_on_the_npu(transcriber):
+    silence = np.zeros(16000, dtype=np.float32)
+    assert isinstance(transcriber.transcribe(silence, language="hi", translate=True), str)

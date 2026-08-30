@@ -34,11 +34,11 @@ def single_instance_lock(name: str = "lightweight-stt") -> socket.socket:
 
 
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
-                     language: str | None = None) -> None:
+                     language: str | None = None, translate: bool = False) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
-    text = transcriber.transcribe(pcm, language=language)
-    tag = f" [{language}]" if language else ""
+    text = transcriber.transcribe(pcm, language=language, translate=translate)
+    tag = f" [{language}{'→en' if translate else ''}]" if language else ""
     if text:
         log.info("%.1fs audio%s -> %r", len(pcm) / 16000, tag, text)
         injector.send(text + (" " if trailing_space else ""))
@@ -75,19 +75,20 @@ def run() -> int:
     recorder = Recorder(device=cfg.audio_device)
     indicator.set("ready")
 
-    def on_press(language: str) -> None:
+    def on_press(language: str, translate: bool) -> None:
         try:
-            log.info("hotkey down — listening [%s]", language)
-            indicator.set("listening", detail=language if language != cfg.language else None)
+            log.info("hotkey down — listening [%s%s]", language, "→en" if translate else "")
+            detail = (language + ("→en" if translate else "")) if language != cfg.language or translate else None
+            indicator.set("listening", detail=detail)
             recorder.start()
         except Exception:
             log.exception("could not start recording")
             indicator.set("error")
 
-    def on_release(language: str) -> None:
+    def on_release(language: str, translate: bool) -> None:
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
-                             cfg.trailing_space, language=language)
+                             cfg.trailing_space, language=language, translate=translate)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

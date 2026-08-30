@@ -58,6 +58,12 @@ def test_hotkey_language_defaults_empty():
     assert load(path=Path("/nonexistent/c.toml")).hotkey_language == {}
 
 
+def test_hotkey_translate_loads(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('hotkey_translate = ["KEY_SCROLLLOCK"]\n')
+    assert load(path=f).hotkey_translate == ["KEY_SCROLLLOCK"]
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")
