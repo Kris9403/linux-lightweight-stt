@@ -70,7 +70,7 @@ def run() -> int:
     indicator.set("processing")
     transcriber = Transcriber(
         cfg.model_dir, cfg.device, cfg.language, cfg.cache_dir, cfg.min_speech_ms,
-        extra_hallucinations=cfg.hallucinations,
+        extra_hallucinations=cfg.hallucinations, vocabulary=cfg.vocabulary,
     )
     recorder = Recorder(device=cfg.audio_device)
     indicator.set("ready")

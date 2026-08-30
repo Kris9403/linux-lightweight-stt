@@ -57,6 +57,15 @@ def test_is_hallucination_accepts_a_custom_blocklist():
     assert is_hallucination("hello there", extra) is False
 
 
+def test_vocab_hotwords_joins_for_gpu_but_drops_on_npu(caplog):
+    from stt.transcribe import vocab_hotwords
+    assert vocab_hotwords(["Krishna", "OpenVINO"], "GPU") == "Krishna OpenVINO"
+    assert vocab_hotwords([], "GPU") is None
+    with caplog.at_level("WARNING"):
+        assert vocab_hotwords(["Krishna"], "NPU") is None
+    assert "ignored on the NPU" in caplog.text
+
+
 # --- integration: real Whisper on the NPU ---
 
 def test_transcriber_returns_empty_for_below_threshold_audio(transcriber):

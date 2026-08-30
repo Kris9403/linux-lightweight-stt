@@ -30,6 +30,7 @@ class Config:
     trailing_space: bool = True
     min_speech_ms: int = 300
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
+    vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
     cache_dir: str = "~/.cache/lightweight-stt/ov"
     model_dir: str = str(_REPO_ROOT / "whisper-small-ov")
 

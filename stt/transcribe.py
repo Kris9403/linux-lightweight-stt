@@ -42,6 +42,18 @@ def is_hallucination(text: str, blocklist: frozenset[str] | set[str] = _SILENCE_
     return _normalise(text) in blocklist
 
 
+def vocab_hotwords(vocabulary: list[str] | None, device: str) -> str | None:
+    """Join a vocabulary list into a hotwords string, or None. The NPU's static
+    decoder context can't take extra prompt tokens, so it's dropped there."""
+    if not vocabulary:
+        return None
+    if device == "NPU":
+        log.warning("custom vocabulary is ignored on the NPU (static shape limit); "
+                    'set device = "GPU" or "CPU" to use it')
+        return None
+    return " ".join(vocabulary)
+
+
 class Transcriber:
     def __init__(
         self,
@@ -51,9 +63,11 @@ class Transcriber:
         cache_dir: str | None = None,
         min_speech_ms: int = 300,
         extra_hallucinations: list[str] | None = None,
+        vocabulary: list[str] | None = None,
     ):
         self._lang_token = f"<|{language}|>"
         self._min_speech_ms = min_speech_ms
+        self._hotwords = vocab_hotwords(vocabulary, device)
         self._blocklist = _SILENCE_ARTIFACTS | {
             _normalise(h) for h in (extra_hallucinations or [])
         }
@@ -68,11 +82,13 @@ class Transcriber:
         if is_too_short(pcm, self._min_speech_ms):
             return ""
         lang_token = f"<|{language}|>" if language else self._lang_token
+        extra = {"hotwords": self._hotwords} if self._hotwords else {}
         result = self._pipe.generate(
             pcm,
             language=lang_token,
             task="translate" if translate else "transcribe",
             return_timestamps=False,
+            **extra,
         )
         text = (result.texts[0] if result.texts else "").strip()
         if is_hallucination(text, self._blocklist):

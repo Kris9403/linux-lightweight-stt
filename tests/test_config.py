@@ -64,6 +64,12 @@ def test_hotkey_translate_loads(tmp_path):
     assert load(path=f).hotkey_translate == ["KEY_SCROLLLOCK"]
 
 
+def test_vocabulary_loads(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('vocabulary = ["Kubernetes", "Anthropic"]\n')
+    assert load(path=f).vocabulary == ["Kubernetes", "Anthropic"]
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")
