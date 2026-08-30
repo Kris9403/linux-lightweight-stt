@@ -19,36 +19,60 @@ SAMPLE_RATE = 16000
 
 
 class EndpointDetector:
-    """RMS-energy voice-activity endpointing. Feed it audio chunk by chunk;
-    `feed()` returns True the moment speech has been heard and then followed by
-    `silence_ms` of quiet. No model, no dependency."""
+    """RMS-energy voice-activity endpointing, no model.
 
-    def __init__(self, samplerate: int = SAMPLE_RATE, threshold: float = 0.015,
-                 silence_ms: int = 700, min_speech_ms: int = 300):
+    Audio is analysed in fixed ~30 ms frames (so tiny 2 ms driver callbacks or
+    huge ones both work) — the framing alone averages out sub-frame noise ticks.
+    A run of `_SPEECH_RESET_FRAMES` consecutive speech frames is required to
+    clear the silence countdown, so a lone noisy frame doesn't. `feed()` returns
+    True the moment speech has been heard and then followed by `silence_ms` of
+    quiet.
+    """
+
+    _SPEECH_RESET_FRAMES = 3   # ~90 ms of sustained speech clears the countdown
+
+    def __init__(self, samplerate: int = SAMPLE_RATE, threshold: float = 0.025,
+                 silence_ms: int = 700, min_speech_ms: int = 300, frame_ms: int = 30):
         self.threshold = threshold
-        self._silence_needed = samplerate * silence_ms // 1000
-        self._speech_needed = samplerate * min_speech_ms // 1000
+        self._frame = max(1, samplerate * frame_ms // 1000)
+        self._silence_frames_needed = max(1, silence_ms // frame_ms)
+        self._speech_frames_needed = max(1, min_speech_ms // frame_ms)
+        self._tail = np.zeros(0, dtype=np.float32)
         self.reset()
 
     def reset(self) -> None:
-        self._speech_total = 0
+        self._speech_run = 0
         self._silence_run = 0
         self._had_speech = False
+        self._tail = self._tail[:0]
 
     def feed(self, chunk: np.ndarray) -> bool:
-        if chunk.size == 0:
+        if chunk is None or len(chunk) == 0:
             return False
-        rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64))))
-        if rms >= self.threshold:
-            self._speech_total += chunk.size
-            self._silence_run = 0
-            if self._speech_total >= self._speech_needed:
+        buf = np.concatenate([self._tail, np.asarray(chunk, dtype=np.float32).reshape(-1)])
+        fired = False
+        n = self._frame
+        for i in range(0, len(buf) - n + 1, n):
+            if self._step(buf[i:i + n]):
+                fired = True
+        self._tail = buf[len(buf) - (len(buf) % n):] if len(buf) % n else buf[:0]
+        return fired
+
+    def _step(self, frame: np.ndarray) -> bool:
+        rms = float(np.sqrt(np.mean(np.square(frame, dtype=np.float64))))
+        if rms > self.threshold:
+            self._speech_run += 1
+            if self._speech_run >= self._speech_frames_needed:   # sustained speech
                 self._had_speech = True
+            if self._speech_run >= self._SPEECH_RESET_FRAMES:
+                self._silence_run = 0
         else:
-            self._silence_run += chunk.size
-            if self._had_speech and self._silence_run >= self._silence_needed:
-                self.reset()
-                return True
+            self._speech_run = 0
+            if self._had_speech:
+                self._silence_run += 1
+                if self._silence_run >= self._silence_frames_needed:
+                    self.reset()
+                    return True
         return False
 
 
@@ -75,6 +99,7 @@ class Recorder:
             channels=1,
             dtype="float32",
             device=self.device,
+            blocksize=self.samplerate // 10,   # ~100 ms callbacks, not 2 ms
             callback=self._callback,
         )
         self._stream.start()
