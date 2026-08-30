@@ -8,10 +8,7 @@ Endpoints:
 """
 from __future__ import annotations
 
-import subprocess
-import tempfile
 import time
-from pathlib import Path
 from contextlib import asynccontextmanager
 
 import numpy as np
@@ -19,6 +16,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from stt.config import load as load_config
+from stt.decode import ffmpeg_to_pcm
 from stt.transcribe import Transcriber
 
 _cfg = load_config()
@@ -50,25 +48,6 @@ app.add_middleware(
 )
 
 
-def _ffmpeg_to_pcm(data: bytes) -> np.ndarray:
-    """Decode any audio format (webm, ogg, wav, …) to 16 kHz mono float32 via ffmpeg."""
-    with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as tmp:
-        tmp.write(data)
-        tmp_path = tmp.name
-    try:
-        out = subprocess.run(
-            ["ffmpeg", "-y", "-i", tmp_path, "-ar", str(SAMPLE_RATE), "-ac", "1",
-             "-f", "f32le", "-"],
-            capture_output=True,
-            timeout=15,
-        )
-        if out.returncode != 0:
-            raise ValueError(f"ffmpeg failed: {out.stderr[-200:]}")
-        return np.frombuffer(out.stdout, dtype=np.float32)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-
 @app.get("/health")
 async def health():
     return {"status": "ready" if _transcriber else "loading", "device": _cfg.device}
@@ -93,7 +72,7 @@ async def transcribe(request: Request):
             raise HTTPException(400, "missing 'audio' field in form data")
         raw = await audio_file.read()
         try:
-            audio = _ffmpeg_to_pcm(raw)
+            audio = ffmpeg_to_pcm(raw, timeout=15)
         except Exception as e:
             raise HTTPException(422, f"audio decode failed: {e}")
     else:
