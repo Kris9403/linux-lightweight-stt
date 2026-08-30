@@ -42,12 +42,13 @@ class FakeIndicator:
         self.states.append(state)
 
 
-def _run(text, trailing_space=True, language=None, translate=False):
+def _run(text, trailing_space=True, language=None, translate=False, record=None):
     rec = FakeRecorder(np.zeros(16000, dtype=np.float32))
     tr = FakeTranscriber(text)
     inj = FakeInjector()
     ind = FakeIndicator()
-    handle_utterance(rec, tr, inj, ind, trailing_space, language=language, translate=translate)
+    handle_utterance(rec, tr, inj, ind, trailing_space, language=language,
+                     translate=translate, record=record)
     return inj, ind, tr
 
 
@@ -83,3 +84,24 @@ def test_utterance_language_reaches_the_transcriber():
 def test_translate_flag_reaches_the_transcriber():
     _, _, tr = _run("hello", language="hi", translate=True)
     assert tr.seen_translate is True
+
+
+def test_history_file_gets_each_insertion(tmp_path):
+    hist = tmp_path / "history.log"
+    _run("first line", record=hist)
+    _run("second line", language="fr", record=hist)
+    lines = hist.read_text().splitlines()
+    assert len(lines) == 2
+    assert lines[0].endswith("\tfirst line") and "\t\t" in lines[0]     # no language
+    assert lines[1].endswith("\tsecond line") and "\tfr\t" in lines[1]
+
+
+def test_history_not_written_without_a_path(tmp_path):
+    _run("nope", record=None)          # just must not raise
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_empty_transcription_is_not_recorded(tmp_path):
+    hist = tmp_path / "h.log"
+    _run("", record=hist)
+    assert not hist.exists()

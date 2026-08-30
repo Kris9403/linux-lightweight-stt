@@ -5,9 +5,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import socket
 import threading
+from datetime import datetime
+from pathlib import Path
 
 from .audio import Recorder
 from .config import load
@@ -33,8 +36,16 @@ def single_instance_lock(name: str = "lightweight-stt") -> socket.socket:
     return sock
 
 
+def history_path() -> Path:
+    base = os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state")
+    d = Path(base) / "lightweight-stt"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "history.log"
+
+
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
-                     language: str | None = None, translate: bool = False) -> None:
+                     language: str | None = None, translate: bool = False,
+                     record: Path | None = None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     text = transcriber.transcribe(pcm, language=language, translate=translate)
@@ -42,6 +53,10 @@ def handle_utterance(recorder, transcriber, injector, indicator, trailing_space:
     if text:
         log.info("%.1fs audio%s -> %r", len(pcm) / 16000, tag, text)
         injector.send(text + (" " if trailing_space else ""))
+        if record:
+            with open(record, "a", encoding="utf-8") as fh:
+                fh.write(f"{datetime.now().isoformat(timespec='seconds')}\t"
+                         f"{language or ''}{'→en' if translate else ''}\t{text}\n")
     else:
         log.info("%.1fs audio%s -> (nothing)", len(pcm) / 16000, tag)
     indicator.set("ready")
@@ -86,10 +101,13 @@ def run() -> int:
             log.exception("could not start recording")
             indicator.set("error")
 
+    record = history_path() if cfg.history else None
+
     def on_release(language: str, translate: bool) -> None:
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
-                             cfg.trailing_space, language=language, translate=translate)
+                             cfg.trailing_space, language=language, translate=translate,
+                             record=record)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

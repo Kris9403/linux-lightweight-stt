@@ -117,6 +117,7 @@ keeps its default.
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |
+| `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
 
 ## Transcribing a file
 

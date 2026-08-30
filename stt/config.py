@@ -30,6 +30,7 @@ class Config:
     indicator: str = "both"             # notify | beep | both | off
     trailing_space: bool = True
     min_speech_ms: int = 300
+    history: bool = True                 # append each insertion to a history file
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
     vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
     num_beams: int = 1                   # beam search width; >1 is GPU/CPU only
