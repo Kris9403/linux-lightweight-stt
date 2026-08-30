@@ -18,6 +18,40 @@ log = logging.getLogger(__name__)
 SAMPLE_RATE = 16000
 
 
+class EndpointDetector:
+    """RMS-energy voice-activity endpointing. Feed it audio chunk by chunk;
+    `feed()` returns True the moment speech has been heard and then followed by
+    `silence_ms` of quiet. No model, no dependency."""
+
+    def __init__(self, samplerate: int = SAMPLE_RATE, threshold: float = 0.015,
+                 silence_ms: int = 700, min_speech_ms: int = 300):
+        self.threshold = threshold
+        self._silence_needed = samplerate * silence_ms // 1000
+        self._speech_needed = samplerate * min_speech_ms // 1000
+        self.reset()
+
+    def reset(self) -> None:
+        self._speech_total = 0
+        self._silence_run = 0
+        self._had_speech = False
+
+    def feed(self, chunk: np.ndarray) -> bool:
+        if chunk.size == 0:
+            return False
+        rms = float(np.sqrt(np.mean(np.square(chunk, dtype=np.float64))))
+        if rms >= self.threshold:
+            self._speech_total += chunk.size
+            self._silence_run = 0
+            if self._speech_total >= self._speech_needed:
+                self._had_speech = True
+        else:
+            self._silence_run += chunk.size
+            if self._had_speech and self._silence_run >= self._silence_needed:
+                self.reset()
+                return True
+        return False
+
+
 class Recorder:
     def __init__(self, samplerate: int = SAMPLE_RATE, max_seconds: int = 30,
                  device: int | str | None = None):
