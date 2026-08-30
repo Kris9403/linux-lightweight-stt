@@ -98,14 +98,17 @@ udev/99-uinput.rules
   stripped, only matched as a whole result.
 
 **audio.py**
-- `Recorder(samplerate=16000, device=None)` — `.start()` opens a **fresh**
-  `sd.InputStream` and `.stop()` tears it down. A single long-lived stream does
-  not survive suspend/resume or a PipeWire restart (the callback goes silent);
-  a per-utterance stream does. `device` (from `cfg.audio_device`) pins a
-  specific mic so a reconnecting Bluetooth headset can't steal the default.
-- `.stop() -> np.ndarray` returns the buffered utterance, capped at
-  `max_seconds` so a stuck state can't OOM.
-- `on_endpoint: Callable | None` hook left unused for now.
+- `Recorder(samplerate=16000, device=None, vad=None)` — `.start()` opens a
+  **fresh** `sd.InputStream` and `.stop()` tears it down. A single long-lived
+  stream does not survive suspend/resume or a PipeWire restart (the callback
+  goes silent); a per-utterance stream does. `device` (from `cfg.audio_device`)
+  pins a specific mic so a reconnecting Bluetooth headset can't steal the default.
+- `.stop() -> np.ndarray` returns the buffered utterance (capped at
+  `max_seconds`) and closes the stream. `.take()` returns the buffer and clears
+  it **without** closing — used between endpoints in streaming mode.
+- `EndpointDetector` — plain RMS-energy VAD (no model). `feed(chunk)` returns
+  True once speech has been heard then followed by `silence_ms` of quiet. When a
+  `vad` is passed, `_callback` feeds it and fires `on_endpoint` on each segment.
 
 **hotkey.py**
 - `Listener(cfg, on_press, on_release)` — opens all devices whose caps include
@@ -119,6 +122,9 @@ udev/99-uinput.rules
   value==2 repeat.
 - TOGGLE: each value==1 on the owning key starts/stops; value==0/2 ignored.
 - HYBRID: keydown starts; keyup after `< tap_ms` latches, else stops.
+- STREAMING: like toggle for start/stop, but the `Recorder`'s `EndpointDetector`
+  fires `on_endpoint` on each pause; `main.py`'s worker drains a queue and
+  transcribes each segment. `mute_hotkey` pauses the whole listener.
 - A session is **locked** to `_active_code`; events from any other hotkey are
   dropped until it ends. Each key's language (`hotkey_language` or `language`)
   is stashed on start and handed to `on_release`.
