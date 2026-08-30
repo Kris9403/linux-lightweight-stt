@@ -31,7 +31,7 @@ class Config:
     trailing_space: bool = True
     min_speech_ms: int = 300
     vad_silence_ms: int = 700           # streaming: quiet gap that ends a segment
-    vad_threshold: float = 0.015        # streaming: RMS level counted as speech
+    vad_threshold: float = 0.025        # streaming: RMS level counted as speech
     history: bool = True                 # append each insertion to a history file
     privacy: bool = False               # keep transcripts out of the logs and history
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop

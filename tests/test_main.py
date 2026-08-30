@@ -107,6 +107,13 @@ def test_empty_transcription_is_not_recorded(tmp_path):
     assert not hist.exists()
 
 
+def test_emit_segment_quiet_skips_the_indicator():
+    ind = FakeIndicator()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("hi"),
+                 FakeInjector(), ind, True, quiet=True)
+    assert ind.states == []          # no chime -> no mic feedback in streaming
+
+
 def test_emit_segment_transcribes_a_raw_pcm_and_types_it(tmp_path):
     tr = FakeTranscriber("segment text")
     inj = FakeInjector()

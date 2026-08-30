@@ -78,7 +78,7 @@ def test_send_ignores_empty_text(calls):
 def test_send_short_ascii_types_via_ydotool(calls):
     inject.Injector("ydotool", can_paste=True, paste_threshold=50).send("hello there")
     assert calls == [
-        ["ydotool", "type", "--key-delay", "0", "--key-hold", "2", "--", "hello there"]
+        ["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", "hello there"]
     ]
 
 
@@ -109,5 +109,5 @@ def test_send_non_ascii_heavy_uses_paste(calls, monkeypatch):
 def test_send_long_text_types_when_paste_unavailable(calls):
     inject.Injector("ydotool", can_paste=False, paste_threshold=50).send("y" * 80)
     assert calls == [
-        ["ydotool", "type", "--key-delay", "0", "--key-hold", "2", "--", "y" * 80]
+        ["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", "y" * 80]
     ]
