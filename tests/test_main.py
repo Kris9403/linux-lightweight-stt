@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from stt.main import single_instance_lock, handle_utterance, AlreadyRunning
+from stt.main import single_instance_lock, handle_utterance, emit_segment, AlreadyRunning
 
 
 class FakeRecorder:
@@ -105,6 +105,19 @@ def test_empty_transcription_is_not_recorded(tmp_path):
     hist = tmp_path / "h.log"
     _run("", record=hist)
     assert not hist.exists()
+
+
+def test_emit_segment_transcribes_a_raw_pcm_and_types_it(tmp_path):
+    tr = FakeTranscriber("segment text")
+    inj = FakeInjector()
+    ind = FakeIndicator()
+    hist = tmp_path / "h.log"
+    emit_segment(np.zeros(16000, dtype=np.float32), tr, inj, ind, True,
+                 language="fr", translate=True, record=hist)
+    assert inj.sent == ["segment text "]
+    assert tr.seen_translate is True and tr.seen_language == "fr"
+    assert "\tfr→en\tsegment text" in hist.read_text()
+    assert ind.states[-1] == "ready"
 
 
 def test_redact_keeps_the_transcript_out_of_logs_and_history(tmp_path, caplog):
