@@ -107,3 +107,37 @@ class Transcriber:
         if is_hallucination(text, self._blocklist):
             return ""
         return text
+
+
+def transcribe_file(path: str, language: str | None = None, translate: bool = False,
+                    device: str | None = None) -> str:
+    from .config import load
+    from .decode import ffmpeg_to_pcm
+
+    cfg = load()
+    tr = Transcriber(
+        cfg.model_dir, device or cfg.device, cfg.language, cfg.cache_dir,
+        min_speech_ms=0, extra_hallucinations=cfg.hallucinations,
+        vocabulary=cfg.vocabulary, num_beams=cfg.num_beams,
+    )
+    return tr.transcribe(ffmpeg_to_pcm(path), language=language, translate=translate)
+
+
+def _main() -> int:
+    import argparse
+
+    p = argparse.ArgumentParser(
+        prog="python -m stt.transcribe",
+        description="Transcribe an audio or video file to stdout.",
+    )
+    p.add_argument("file")
+    p.add_argument("-l", "--language", help="override the configured language")
+    p.add_argument("--translate", action="store_true", help="translate to English")
+    p.add_argument("--device", help="override the OpenVINO device (NPU/GPU/CPU)")
+    args = p.parse_args()
+    print(transcribe_file(args.file, args.language, args.translate, args.device))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

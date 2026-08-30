@@ -105,3 +105,16 @@ def test_per_call_language_switches_without_recompiling(transcriber):
 def test_translate_task_runs_on_the_npu(transcriber):
     silence = np.zeros(16000, dtype=np.float32)
     assert isinstance(transcriber.transcribe(silence, language="hi", translate=True), str)
+
+
+def test_transcribe_file_decodes_and_runs(tmp_path):
+    import subprocess
+    from stt.transcribe import transcribe_file
+
+    wav = tmp_path / "sil.wav"
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=16000:cl=mono",
+         "-t", "1", str(wav)],
+        capture_output=True, check=True,
+    )
+    assert transcribe_file(str(wav)) == ""   # 1 s of true silence

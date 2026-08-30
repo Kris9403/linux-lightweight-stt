@@ -117,6 +117,15 @@ keeps its default.
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |
 
+## Transcribing a file
+
+```
+./venv/bin/python -m stt.transcribe recording.mp4
+./venv/bin/python -m stt.transcribe interview.m4a --language hi --translate
+```
+
+Anything ffmpeg can read (audio or video). `--device` overrides the configured one.
+
 ## HTTP server
 
 `stt_server.py` exposes the same transcriber over HTTP for other tools to call —
