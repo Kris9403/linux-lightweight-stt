@@ -66,6 +66,15 @@ def test_vocab_hotwords_joins_for_gpu_but_drops_on_npu(caplog):
     assert "ignored on the NPU" in caplog.text
 
 
+def test_resolve_beams_forces_greedy_on_npu(caplog):
+    from stt.transcribe import resolve_beams
+    assert resolve_beams(5, "GPU") == 5
+    assert resolve_beams(1, "NPU") == 1
+    with caplog.at_level("WARNING"):
+        assert resolve_beams(5, "NPU") == 1
+    assert "isn't supported on the NPU" in caplog.text
+
+
 # --- integration: real Whisper on the NPU ---
 
 def test_transcriber_returns_empty_for_below_threshold_audio(transcriber):

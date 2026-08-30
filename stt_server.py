@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
     _transcriber = Transcriber(
         _cfg.model_dir, _cfg.device, _cfg.language, _cfg.cache_dir, _cfg.min_speech_ms,
         extra_hallucinations=_cfg.hallucinations, vocabulary=_cfg.vocabulary,
+        num_beams=_cfg.num_beams,
     )
     print("[stt] ready.")
     yield

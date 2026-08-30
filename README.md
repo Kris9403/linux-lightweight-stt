@@ -112,6 +112,7 @@ keeps its default.
 | `paste_settle_ms` | `150` | pause after Ctrl+V before restoring the old clipboard; raise it if a slow app pastes stale text |
 | `hallucinations` | `[]` | extra phrases to drop on top of the built-in silence list (e.g. a noise your fan triggers) |
 | `vocabulary` | `[]` | names / jargon to bias the model toward, e.g. `["Kubernetes", "Anthropic"]`. **GPU/CPU only** — the NPU's fixed decoder context can't take the extra tokens, so it's ignored with a warning there |
+| `num_beams` | `1` | beam-search width; `>1` improves accuracy on hard audio at a speed cost. **GPU/CPU only** — the NPU can't batch beams, so it's forced back to greedy with a warning |
 | `indicator` | `both` | `notify`, `beep`, `both`, or `off` |
 | `trailing_space` | `true` | add a space after each insertion |
 | `min_speech_ms` | `300` | drop anything shorter |

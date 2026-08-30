@@ -54,6 +54,15 @@ def vocab_hotwords(vocabulary: list[str] | None, device: str) -> str | None:
     return " ".join(vocabulary)
 
 
+def resolve_beams(num_beams: int, device: str) -> int:
+    """Beam search doesn't run on the NPU (static batch dim) — force greedy there."""
+    if num_beams > 1 and device == "NPU":
+        log.warning("beam search (num_beams=%d) isn't supported on the NPU; using greedy. "
+                    'set device = "GPU" or "CPU" for beam search', num_beams)
+        return 1
+    return max(1, num_beams)
+
+
 class Transcriber:
     def __init__(
         self,
@@ -64,10 +73,12 @@ class Transcriber:
         min_speech_ms: int = 300,
         extra_hallucinations: list[str] | None = None,
         vocabulary: list[str] | None = None,
+        num_beams: int = 1,
     ):
         self._lang_token = f"<|{language}|>"
         self._min_speech_ms = min_speech_ms
         self._hotwords = vocab_hotwords(vocabulary, device)
+        self._num_beams = resolve_beams(num_beams, device)
         self._blocklist = _SILENCE_ARTIFACTS | {
             _normalise(h) for h in (extra_hallucinations or [])
         }
@@ -83,6 +94,8 @@ class Transcriber:
             return ""
         lang_token = f"<|{language}|>" if language else self._lang_token
         extra = {"hotwords": self._hotwords} if self._hotwords else {}
+        if self._num_beams > 1:
+            extra["num_beams"] = self._num_beams
         result = self._pipe.generate(
             pcm,
             language=lang_token,

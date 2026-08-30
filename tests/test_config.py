@@ -70,6 +70,13 @@ def test_vocabulary_loads(tmp_path):
     assert load(path=f).vocabulary == ["Kubernetes", "Anthropic"]
 
 
+def test_num_beams_defaults_to_one_and_loads(tmp_path):
+    assert load(path=Path("/nonexistent/c.toml")).num_beams == 1
+    f = tmp_path / "c.toml"
+    f.write_text("num_beams = 5\n")
+    assert load(path=f).num_beams == 5
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")
