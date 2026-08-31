@@ -166,3 +166,19 @@ format ffmpeg reads) and `GET /health`. Run it with
 
 The transcriber tests load the real model on the NPU, so they take a couple of
 seconds. `docs/design.md` has the reasoning behind the structure.
+
+## Credits
+
+This is a thin wrapper around other people's work:
+
+- [Whisper](https://github.com/openai/whisper) and the `openai/whisper-small`
+  weights — OpenAI, MIT licensed.
+- [OpenVINO](https://github.com/openvinotoolkit/openvino) and
+  [OpenVINO GenAI](https://github.com/openvinotoolkit/openvino.genai) — Intel,
+  Apache-2.0. `optimum-intel` does the model export.
+- [ydotool](https://github.com/ReimuNotMoe/ydotool) for uinput injection, plus
+  `wl-clipboard`, `xdotool`, `notify-send` and `canberra-gtk-play` — each called
+  as an external tool under its own license.
+- `sounddevice`, `numpy`, and [python-evdev](https://github.com/gvalkov/python-evdev).
+
+This project is MIT licensed (see `LICENSE`); the components above keep theirs.
