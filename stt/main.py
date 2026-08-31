@@ -11,6 +11,7 @@ import re
 import signal
 import socket
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from .config import load
 from .hotkey import Listener
 from .indicator import Indicator
 from .inject import NoInjectorError, probe
+from .stats import Timings
 from .transcribe import Transcriber
 
 log = logging.getLogger("stt")
@@ -69,11 +71,16 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                  language: str | None = None, translate: bool = False,
                  record: Path | None = None, redact: bool = False,
                  quiet: bool = False, commands: dict | None = None,
-                 cleaner=None) -> None:
+                 cleaner=None, timings=None) -> None:
     """Transcribe one audio segment and type it. Shared by push-to-talk and the
     continuous-mode worker. `quiet` skips the indicator so the chime can't feed
     back into the mic between segments."""
+    t0 = time.perf_counter()
     text = transcriber.transcribe(pcm, language=language, translate=translate)
+    if timings is not None:
+        dt = time.perf_counter() - t0
+        timings.add(dt)
+        log.info("transcribed in %d ms", dt * 1000)
     tag = f" [{language}{'→en' if translate else ''}]" if language else ""
     if text and commands:
         action = commands.get(_norm(text))
@@ -104,12 +111,12 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
                      language: str | None = None, translate: bool = False,
                      record: Path | None = None, redact: bool = False,
-                     commands: dict | None = None, cleaner=None) -> None:
+                     commands: dict | None = None, cleaner=None, timings=None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     emit_segment(pcm, transcriber, injector, indicator, trailing_space,
                  language=language, translate=translate, record=record, redact=redact,
-                 commands=commands, cleaner=cleaner)
+                 commands=commands, cleaner=cleaner, timings=timings)
 
 
 def run() -> int:
@@ -150,6 +157,9 @@ def run() -> int:
     if cfg.llm_cleanup:
         cleaner = lambda t: clean_text(t, cfg.llm_endpoint, cfg.llm_model)  # noqa: E731
         log.info("llm cleanup on via %s (%s)", cfg.llm_endpoint, cfg.llm_model)
+    timings = Timings() if cfg.latency_stats else None
+    if timings is not None:
+        log.info("latency stats on")
     st = {"lang": cfg.language, "translate": False}   # current streaming session
     segments: queue.Queue = queue.Queue()
 
@@ -158,7 +168,7 @@ def run() -> int:
             emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
                          language=st["lang"], translate=st["translate"],
                          record=record, redact=cfg.privacy, quiet=True,
-                         commands=cfg.commands, cleaner=cleaner)
+                         commands=cfg.commands, cleaner=cleaner, timings=timings)
         except Exception:
             log.exception("segment failed")
 
@@ -182,7 +192,7 @@ def run() -> int:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
                              record=record, redact=cfg.privacy, commands=cfg.commands,
-                             cleaner=cleaner)
+                             cleaner=cleaner, timings=timings)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")
@@ -219,6 +229,8 @@ def run() -> int:
         listener.stop()
         recorder.close()
         indicator.set("off")
+        if timings is not None:
+            timings.log_summary()
     return 0
 
 

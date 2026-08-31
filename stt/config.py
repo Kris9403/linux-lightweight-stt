@@ -34,6 +34,7 @@ class Config:
     vad_threshold: float = 0.025        # streaming: RMS level counted as speech
     history: bool = True                 # append each insertion to a history file
     privacy: bool = False               # keep transcripts out of the logs and history
+    latency_stats: bool = False         # log transcribe time per utterance + a summary on exit
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
     vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
     commands: dict[str, str] = field(default_factory=dict)   # spoken phrase -> action
