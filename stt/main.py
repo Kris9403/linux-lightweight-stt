@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import queue
+import re
 import signal
 import socket
 import threading
@@ -44,15 +45,42 @@ def history_path() -> Path:
     return d / "history.log"
 
 
+_KEY_RE = re.compile(r"^<key:([a-z]+)>$", re.IGNORECASE)
+
+
+def _norm(text: str) -> str:
+    return text.strip().lower().rstrip(".!?").strip()
+
+
+def run_command(action: str, injector) -> None:
+    """`<undo>`, `<key:NAME>`, or a literal string to type (e.g. '\\n', '. ')."""
+    if action == "<undo>":
+        injector.undo()
+        return
+    m = _KEY_RE.match(action.strip())
+    if m:
+        injector.send_key(m.group(1))
+        return
+    injector.send(action)
+
+
 def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                  language: str | None = None, translate: bool = False,
                  record: Path | None = None, redact: bool = False,
-                 quiet: bool = False) -> None:
+                 quiet: bool = False, commands: dict | None = None) -> None:
     """Transcribe one audio segment and type it. Shared by push-to-talk and the
     continuous-mode worker. `quiet` skips the indicator so the chime can't feed
     back into the mic between segments."""
     text = transcriber.transcribe(pcm, language=language, translate=translate)
     tag = f" [{language}{'→en' if translate else ''}]" if language else ""
+    if text and commands:
+        action = commands.get(_norm(text))
+        if action is not None:
+            log.info("%.1fs audio%s -> command %r", len(pcm) / 16000, tag, text)
+            run_command(action, injector)
+            if not quiet:
+                indicator.set("ready")
+            return
     if text:
         if redact:
             log.info("%.1fs audio%s -> %d chars", len(pcm) / 16000, tag, len(text))
@@ -71,11 +99,13 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
 
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
                      language: str | None = None, translate: bool = False,
-                     record: Path | None = None, redact: bool = False) -> None:
+                     record: Path | None = None, redact: bool = False,
+                     commands: dict | None = None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     emit_segment(pcm, transcriber, injector, indicator, trailing_space,
-                 language=language, translate=translate, record=record, redact=redact)
+                 language=language, translate=translate, record=record, redact=redact,
+                 commands=commands)
 
 
 def run() -> int:
@@ -119,7 +149,8 @@ def run() -> int:
         try:
             emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
                          language=st["lang"], translate=st["translate"],
-                         record=record, redact=cfg.privacy, quiet=True)
+                         record=record, redact=cfg.privacy, quiet=True,
+                         commands=cfg.commands)
         except Exception:
             log.exception("segment failed")
 
@@ -142,7 +173,7 @@ def run() -> int:
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
-                             record=record, redact=cfg.privacy)
+                             record=record, redact=cfg.privacy, commands=cfg.commands)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

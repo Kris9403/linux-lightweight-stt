@@ -36,6 +36,7 @@ class Config:
     privacy: bool = False               # keep transcripts out of the logs and history
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
     vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
+    commands: dict[str, str] = field(default_factory=dict)   # spoken phrase -> action
     num_beams: int = 1                   # beam search width; >1 is GPU/CPU only
     cache_dir: str = "~/.cache/lightweight-stt/ov"
     model_dir: str = str(_REPO_ROOT / "whisper-small-ov")

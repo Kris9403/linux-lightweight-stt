@@ -70,6 +70,12 @@ def test_vocabulary_loads(tmp_path):
     assert load(path=f).vocabulary == ["Kubernetes", "Anthropic"]
 
 
+def test_commands_table_loads(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('[commands]\n"new line" = "\\n"\n"scratch that" = "<undo>"\n')
+    assert load(path=f).commands == {"new line": "\n", "scratch that": "<undo>"}
+
+
 def test_num_beams_defaults_to_one_and_loads(tmp_path):
     assert load(path=Path("/nonexistent/c.toml")).num_beams == 1
     f = tmp_path / "c.toml"
