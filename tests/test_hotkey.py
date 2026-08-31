@@ -215,6 +215,19 @@ def test_mute_hotkey_toggles_and_blocks_dictation():
     assert rec.names == ["press", "release"]
 
 
+def test_set_muted_is_idempotent_and_blocks_dictation():
+    lis, rec = make("hold", hotkey="KEY_F23")
+    lis.set_muted(True)
+    lis.set_muted(True)                        # no-op, no second callback
+    assert rec.muted == [True]
+    lis._handle(F23, 1); lis._handle(F23, 0)
+    assert rec.names == []                     # muted -> dictation ignored
+    lis.set_muted(False)
+    assert rec.muted == [True, False]
+    lis._handle(F23, 1); lis._handle(F23, 0)
+    assert rec.names == ["press", "release"]
+
+
 def test_muting_mid_session_ends_the_recording():
     lis, rec = make("hold", hotkey="KEY_F23", mute_hotkey="KEY_CAPSLOCK")
     lis._handle(F23, 1)                        # recording
