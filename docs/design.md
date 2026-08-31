@@ -56,6 +56,7 @@ stt/
   indicator.py   notify-send status + canberra beeps
   doctor.py      `python -m stt.doctor` — checks groups/NPU/ydotoold/uinput/model/mic
   meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
+  status.py      `python -m stt.status` — config + environment snapshot (no NPU)
   stats.py       optional transcription-latency timing (latency_stats)
   power.py       read the active power profile (battery_saver)
   main.py        wiring, single-instance lock, logging, signal handling
@@ -89,6 +90,13 @@ udev/99-uinput.rules
   any error returns the input unchanged with a warning. `main.run()` builds a `cleaner` closure when
   `llm_cleanup` is set and `emit_segment` applies it after transcription but
   before typing — skipped for utterances that matched a `commands` entry.
+
+**status.py**
+- `run()` prints a snapshot — daemon up (via `ss` for `@lightweight-stt`), mode,
+  hotkey, device, language, model exported?, groups, ydotoold socket, power
+  profile, `battery_saver`, `llm_cleanup` target, `latency_stats`, history
+  size/last entry. Config + environment only; never imports the transcriber or
+  opens the mic, so it's safe while the daemon is running.
 
 **stats.py**
 - `Timings` — `add(seconds)` per transcription; `summary()` / `log_summary()`
