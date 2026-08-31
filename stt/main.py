@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .audio import EndpointDetector, Recorder
+from .cleanup import clean_text
 from .config import load
 from .hotkey import Listener
 from .indicator import Indicator
@@ -67,7 +68,8 @@ def run_command(action: str, injector) -> None:
 def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                  language: str | None = None, translate: bool = False,
                  record: Path | None = None, redact: bool = False,
-                 quiet: bool = False, commands: dict | None = None) -> None:
+                 quiet: bool = False, commands: dict | None = None,
+                 cleaner=None) -> None:
     """Transcribe one audio segment and type it. Shared by push-to-talk and the
     continuous-mode worker. `quiet` skips the indicator so the chime can't feed
     back into the mic between segments."""
@@ -81,6 +83,8 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
             if not quiet:
                 indicator.set("ready")
             return
+    if text and cleaner is not None:
+        text = cleaner(text)
     if text:
         if redact:
             log.info("%.1fs audio%s -> %d chars", len(pcm) / 16000, tag, len(text))
@@ -100,12 +104,12 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
                      language: str | None = None, translate: bool = False,
                      record: Path | None = None, redact: bool = False,
-                     commands: dict | None = None) -> None:
+                     commands: dict | None = None, cleaner=None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     emit_segment(pcm, transcriber, injector, indicator, trailing_space,
                  language=language, translate=translate, record=record, redact=redact,
-                 commands=commands)
+                 commands=commands, cleaner=cleaner)
 
 
 def run() -> int:
@@ -142,6 +146,10 @@ def run() -> int:
     indicator.set("ready")
 
     record = None if cfg.privacy else (history_path() if cfg.history else None)
+    cleaner = None
+    if cfg.llm_cleanup:
+        cleaner = lambda t: clean_text(t, cfg.llm_endpoint, cfg.llm_model)  # noqa: E731
+        log.info("llm cleanup on via %s (%s)", cfg.llm_endpoint, cfg.llm_model)
     st = {"lang": cfg.language, "translate": False}   # current streaming session
     segments: queue.Queue = queue.Queue()
 
@@ -150,7 +158,7 @@ def run() -> int:
             emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
                          language=st["lang"], translate=st["translate"],
                          record=record, redact=cfg.privacy, quiet=True,
-                         commands=cfg.commands)
+                         commands=cfg.commands, cleaner=cleaner)
         except Exception:
             log.exception("segment failed")
 
@@ -173,7 +181,8 @@ def run() -> int:
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
-                             record=record, redact=cfg.privacy, commands=cfg.commands)
+                             record=record, redact=cfg.privacy, commands=cfg.commands,
+                             cleaner=cleaner)
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

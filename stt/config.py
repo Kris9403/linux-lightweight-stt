@@ -37,6 +37,9 @@ class Config:
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
     vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
     commands: dict[str, str] = field(default_factory=dict)   # spoken phrase -> action
+    llm_cleanup: bool = False            # post-process transcripts through an LLM
+    llm_endpoint: str = "http://localhost:11434/v1"   # any OpenAI-compatible server
+    llm_model: str = "llama3.2"
     num_beams: int = 1                   # beam search width; >1 is GPU/CPU only
     cache_dir: str = "~/.cache/lightweight-stt/ov"
     model_dir: str = str(_REPO_ROOT / "whisper-small-ov")

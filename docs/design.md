@@ -75,7 +75,16 @@ udev/99-uinput.rules
   `language`, `num_beams`, `vocabulary`, `hallucinations`, `cache_dir`.
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
   `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`).
+  Post-processing — `llm_cleanup`, `llm_endpoint`, `llm_model`.
   Logging — `history`, `privacy`. Collection-valued keys default to empty.
+
+**cleanup.py**
+- `clean_text(text, endpoint, model)` — POSTs to `{endpoint}/chat/completions`
+  on any OpenAI-compatible local server (Ollama, llama.cpp, LM Studio) with a
+  "strip fillers, fix punctuation, don't rephrase" system prompt. Fails open:
+  any error returns the input unchanged with a warning. `main.run()` builds a `cleaner` closure when
+  `llm_cleanup` is set and `emit_segment` applies it after transcription but
+  before typing — skipped for utterances that matched a `commands` entry.
 
 **inject.py**
 - `probe(cfg) -> Injector` — picks a method, logs the choice, raises
