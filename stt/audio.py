@@ -85,6 +85,7 @@ class Recorder:
         self._chunks: list[np.ndarray] = []
         self._stream = None
         self._vad = vad
+        self.paused = False
         self.on_endpoint: Callable[[], None] | None = None
 
     def start(self) -> None:
@@ -116,6 +117,16 @@ class Recorder:
         running. Used for continuous mode between endpoints."""
         return self._drain()
 
+    def set_paused(self, paused: bool) -> None:
+        """While paused, incoming audio is discarded (the "cough key"). Pausing
+        also dumps whatever is buffered; resuming resets the endpointer so the
+        gap doesn't count as a pause."""
+        self.paused = paused
+        if paused:
+            self._chunks.clear()
+        elif self._vad is not None:
+            self._vad.reset()
+
     def stop(self) -> np.ndarray:
         self._teardown()
         return self._drain()
@@ -135,6 +146,8 @@ class Recorder:
     def _callback(self, indata, frames, time_info, status) -> None:
         if status:
             log.warning("audio stream status: %s", status)
+        if self.paused:
+            return
         chunk = np.asarray(indata, dtype=np.float32).reshape(-1).copy()
         self._chunks.append(chunk)
         if self._vad is not None and self._vad.feed(chunk) and self.on_endpoint:
