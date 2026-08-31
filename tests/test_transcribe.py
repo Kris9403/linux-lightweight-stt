@@ -107,6 +107,20 @@ def test_translate_task_runs_on_the_npu(transcriber):
     assert isinstance(transcriber.transcribe(silence, language="hi", translate=True), str)
 
 
+def test_token_maps_auto_and_none_to_omitted():
+    from stt.transcribe import Transcriber
+    assert Transcriber._token("auto") is None
+    assert Transcriber._token(None) is None
+    assert Transcriber._token("") is None
+    assert Transcriber._token("fr") == "<|fr|>"
+
+
+def test_auto_language_runs_on_the_npu(transcriber):
+    # per-call and default both: omitting the language kwarg must not error
+    silence = np.zeros(16000, dtype=np.float32)
+    assert isinstance(transcriber.transcribe(silence, language="auto"), str)
+
+
 def test_transcribe_file_decodes_and_runs(tmp_path):
     import subprocess
     from stt.transcribe import transcribe_file

@@ -108,7 +108,7 @@ keeps its default.
 | `hotkey_translate` | `[]` | keys whose output is translated to English — e.g. `hotkey_translate = ["KEY_SCROLLLOCK"]` with `KEY_SCROLLLOCK = "hi"` means "speak Hindi, type English" |
 | `mute_hotkey` | `""` | a key that pauses/resumes the whole listener (indicator goes to "off"). Pick one you don't dictate with, e.g. `"KEY_CAPSLOCK"` |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
-| `language` | `en` | Whisper language; the default for any key without a `hotkey_language` entry |
+| `language` | `en` | Whisper language, or `"auto"` to detect it per utterance (less reliable on short/noisy clips — that's why it's not the default). Also the default for any key without a `hotkey_language` entry |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |
 | `audio_device` | unset | mic to record from — a `sounddevice` index or name substring; unset uses the system default |
 | `inject_method` | `auto` | `auto`, `ydotool`, `paste`, or `xdotool` |
