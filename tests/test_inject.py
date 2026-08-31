@@ -94,6 +94,27 @@ def test_send_long_text_uses_clipboard_paste_and_restores(calls, monkeypatch):
     assert any(c[:2] == ["ydotool", "key"] for c in calls)
 
 
+def test_send_key_presses_the_named_key(calls):
+    inject.Injector("ydotool", can_paste=True).send_key("enter")
+    assert calls == [["ydotool", "key", "28:1", "28:0"]]
+
+
+def test_send_key_unknown_name_raises(calls):
+    with pytest.raises(ValueError):
+        inject.Injector("ydotool", can_paste=True).send_key("hyperspace")
+
+
+def test_undo_backspaces_the_last_insertion(calls):
+    inj = inject.Injector("ydotool", can_paste=False, paste_threshold=99)
+    inj.send("hello")                       # 5 chars
+    calls.clear()
+    inj.undo()
+    assert calls == [["ydotool", "key"] + ["14:1", "14:0"] * 5]
+    calls.clear()
+    inj.undo()                              # nothing left to undo
+    assert calls == []
+
+
 def test_paste_settle_delay_is_configurable(calls, monkeypatch):
     monkeypatch.setattr(inject.Injector, "_clipboard_get", staticmethod(lambda: None))
     inject.Injector("ydotool", can_paste=True, paste_threshold=1, settle_ms=40).send("hello world")

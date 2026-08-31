@@ -21,6 +21,14 @@ log = logging.getLogger(__name__)
 # ydotool key codes: leftctrl=29, v=47
 _CTRL_V = ["29:1", "47:1", "47:0", "29:0"]
 
+# evdev codes for the keys command-mode can press (linux/input-event-codes.h)
+_KEYCODES = {
+    "enter": 28, "return": 28, "tab": 15, "escape": 1, "esc": 1,
+    "backspace": 14, "delete": 111, "space": 57,
+    "up": 103, "down": 108, "left": 105, "right": 106,
+    "home": 102, "end": 107, "pageup": 104, "pagedown": 109,
+}
+
 
 class NoInjectorError(RuntimeError):
     pass
@@ -83,6 +91,7 @@ class Injector:
         self.can_paste = can_paste
         self.paste_threshold = paste_threshold
         self.settle_ms = settle_ms
+        self._last_len = 0          # chars of the last text insertion, for undo
 
     def send(self, text: str) -> None:
         text = text.strip()
@@ -92,6 +101,24 @@ class Injector:
             self._paste(text)
         else:
             self._type(text)
+        self._last_len = len(text)
+
+    def send_key(self, name: str, repeat: int = 1) -> None:
+        code = _KEYCODES.get(name.lower())
+        if code is None:
+            raise ValueError(f"unknown key: {name!r}")
+        seq = [f"{code}:1", f"{code}:0"] * max(1, repeat)
+        if self.method == "xdotool":
+            subprocess.run(["xdotool", "key", "--clearmodifiers"] + [name] * repeat, check=True)
+        else:
+            subprocess.run(["ydotool", "key", *seq], check=True)
+        self._last_len = 0
+
+    def undo(self) -> None:
+        """Backspace over the last text insertion."""
+        if self._last_len:
+            self.send_key("backspace", repeat=self._last_len)
+            self._last_len = 0
 
     def _type(self, text: str) -> None:
         if self.method == "xdotool":
