@@ -79,6 +79,12 @@ command to fix whatever failed:
 ./venv/bin/python -m stt.doctor
 ```
 
+For a quick look at how it's configured and whether the daemon is up:
+
+```
+./venv/bin/python -m stt.status
+```
+
 ## Other compositors
 
 Built and tested on GNOME Wayland. The moving parts aren't GNOME-specific:
