@@ -93,6 +93,13 @@ def test_latency_stats_defaults_off_and_loads(tmp_path):
     assert load(path=f).latency_stats is True
 
 
+def test_battery_saver_defaults_empty_and_loads(tmp_path):
+    assert load(path=Path("/nonexistent/c.toml")).battery_saver == ""
+    f = tmp_path / "c.toml"
+    f.write_text('battery_saver = "pause"\n')
+    assert load(path=f).battery_saver == "pause"
+
+
 def test_num_beams_defaults_to_one_and_loads(tmp_path):
     assert load(path=Path("/nonexistent/c.toml")).num_beams == 1
     f = tmp_path / "c.toml"

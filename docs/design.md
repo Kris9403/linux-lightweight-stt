@@ -57,6 +57,7 @@ stt/
   doctor.py      `python -m stt.doctor` — checks groups/NPU/ydotoold/uinput/model/mic
   meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
   stats.py       optional transcription-latency timing (latency_stats)
+  power.py       read the active power profile (battery_saver)
   main.py        wiring, single-instance lock, logging, signal handling
 convert.sh       one-off: optimum-cli export openvino (throwaway venv)
 setup.sh         rewritten (runtime deps only + groups + udev + services)
@@ -78,8 +79,8 @@ udev/99-uinput.rules
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
   `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`).
   Post-processing — `llm_cleanup`, `llm_endpoint`, `llm_model`.
-  Logging — `history`, `privacy`, `latency_stats`. Collection-valued keys
-  default to empty.
+  Logging — `history`, `privacy`, `latency_stats`. Power — `battery_saver`.
+  Collection-valued keys default to empty.
 
 **cleanup.py**
 - `clean_text(text, endpoint, model)` — POSTs to `{endpoint}/chat/completions`
@@ -94,6 +95,13 @@ udev/99-uinput.rules
   give `count / mean / min / max / p95` in ms. `main.run()` creates one when
   `latency_stats` is set, `emit_segment` feeds it (even on an empty transcript,
   so the timing reflects the model call), and the summary is logged on exit.
+
+**power.py**
+- `active_profile()` / `on_power_saver()` — shell out to `powerprofilesctl get`,
+  return None (treated as "no change") when it's absent. When
+  `battery_saver = "pause"`, `main.run()` checks once at startup and then polls
+  every 30 s on a daemon thread, calling `Listener.set_muted()` on each
+  transition so dictation stops in `power-saver` and resumes afterwards.
 
 **inject.py**
 - `probe(cfg) -> Injector` — picks a method, logs the choice, raises

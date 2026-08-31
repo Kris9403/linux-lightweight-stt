@@ -119,6 +119,11 @@ class Listener:
         log.info("hotkey: %s", "muted" if self._muted else "unmuted")
         self._on_mute(self._muted)
 
+    def set_muted(self, muted: bool) -> None:
+        """Force the muted state (used by battery_saver). No-op if unchanged."""
+        if muted != self._muted:
+            self._toggle_mute()
+
     def _begin(self, code: int) -> None:
         self._active_code = code
         self._active_lang = self._key_lang.get(code, self._default_lang)

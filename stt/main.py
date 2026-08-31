@@ -21,6 +21,7 @@ from .config import load
 from .hotkey import Listener
 from .indicator import Indicator
 from .inject import NoInjectorError, probe
+from .power import on_power_saver
 from .stats import Timings
 from .transcribe import Transcriber
 
@@ -205,6 +206,24 @@ def run() -> int:
 
     listener = Listener(cfg, on_press, on_release, on_mute)
     stop = threading.Event()
+
+    if cfg.battery_saver == "pause":
+        saver = on_power_saver()
+        if saver:
+            listener.set_muted(True)
+            log.info("power-saver active — dictation paused (battery_saver = pause)")
+
+        def power_watch() -> None:
+            prev = saver
+            while not stop.wait(30):
+                now = on_power_saver()
+                if now != prev:
+                    listener.set_muted(now)
+                    log.info("power profile changed — dictation %s",
+                             "paused" if now else "resumed")
+                    prev = now
+
+        threading.Thread(target=power_watch, name="power", daemon=True).start()
 
     def worker() -> None:
         while not stop.is_set():
