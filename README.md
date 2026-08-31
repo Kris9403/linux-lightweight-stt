@@ -129,6 +129,7 @@ keeps its default.
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
 | `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
 | `latency_stats` | `false` | log how long each transcription took, and a `count / mean / min / max / p95` summary when the service stops |
+| `battery_saver` | `""` | set to `"pause"` to stop listening whenever the system power profile is `power-saver` (via `powerprofilesctl`); resumes when it changes back. No-op if power-profiles-daemon isn't installed |
 
 ## Mic level meter
 
