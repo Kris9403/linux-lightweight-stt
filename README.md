@@ -123,7 +123,7 @@ keeps its default.
 | `hallucinations` | `[]` | extra phrases to drop on top of the built-in silence list (e.g. a noise your fan triggers) |
 | `vocabulary` | `[]` | names / jargon to bias the model toward, e.g. `["Kubernetes", "PostgreSQL"]`. **GPU/CPU only** — the NPU's fixed decoder context can't take the extra tokens, so it's ignored with a warning there |
 | `commands` | `{}` | `[commands]` table mapping a spoken phrase to an action: a literal string (`"new line" = "\n"`), a key (`"press tab" = "<key:tab>"` — enter/tab/escape/backspace/arrows/…), or `"scratch that" = "<undo>"` to delete the last insertion. Matched only when the whole utterance is the phrase |
-| `llm_cleanup` | `false` | run each transcript through a local LLM to strip fillers ("um", "uh") and fix punctuation. Adds latency per utterance; fails open (transcript passes through untouched if the endpoint is down) |
+| `llm_cleanup` | `false` | run each transcript through a local LLM to strip fillers ("um", "uh") and fix punctuation. Adds latency per utterance; fails open (transcript passes through untouched if the endpoint is down). Ignored when `privacy` is on — the transcript would otherwise leave the process |
 | `llm_endpoint` | `http://localhost:11434/v1` | any OpenAI-compatible base URL (Ollama, llama.cpp server, LM Studio) |
 | `llm_model` | `llama3.2` | model name to request from that endpoint |
 | `num_beams` | `1` | beam-search width; `>1` improves accuracy on hard audio at a speed cost. **GPU/CPU only** — the NPU can't batch beams, so it's forced back to greedy with a warning |
@@ -133,7 +133,7 @@ keeps its default.
 | `vad_silence_ms` | `700` | `streaming` only: the pause that ends a phrase |
 | `vad_threshold` | `0.015` | `streaming` only: RMS level counted as speech; raise it in a noisy room |
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
-| `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
+| `privacy` | `false` | keep transcripts out of the journal (log lengths only), out of the history file, and out of `llm_cleanup` — the text never leaves the process |
 | `latency_stats` | `false` | log how long each transcription took, and a `count / mean / min / max / p95` summary when the service stops |
 | `battery_saver` | `""` | set to `"pause"` to stop listening whenever the system power profile is `power-saver` (via `powerprofilesctl`); resumes when it changes back. No-op if power-profiles-daemon isn't installed |
 

@@ -145,6 +145,16 @@ def test_cleaner_rewrites_the_text_before_typing():
     assert inj.sent == ["Hello. "]
 
 
+def test_cleaner_is_skipped_when_redacting():
+    inj = FakeInjector()
+    calls = []
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("um hello"),
+                 inj, FakeIndicator(), True, redact=True,
+                 cleaner=lambda t: calls.append(t) or "CLEANED")
+    assert inj.sent == ["um hello "]      # original typed, not sent to the llm
+    assert calls == []
+
+
 def test_cleaner_is_skipped_for_commands():
     inj = FakeInjector()
     calls = []

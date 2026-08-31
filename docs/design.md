@@ -89,7 +89,9 @@ udev/99-uinput.rules
   "strip fillers, fix punctuation, don't rephrase" system prompt. Fails open:
   any error returns the input unchanged with a warning. `main.run()` builds a `cleaner` closure when
   `llm_cleanup` is set and `emit_segment` applies it after transcription but
-  before typing — skipped for utterances that matched a `commands` entry.
+  before typing — skipped for utterances that matched a `commands` entry, and
+  not built at all when `privacy` is on (the transcript would otherwise be
+  POSTed off-process); `emit_segment` also guards on `redact` as a backstop.
 
 **status.py**
 - `run()` prints a snapshot — daemon up (via `ss` for `@lightweight-stt`), mode,
