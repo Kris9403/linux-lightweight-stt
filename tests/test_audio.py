@@ -98,6 +98,33 @@ def test_take_returns_buffer_without_stopping_the_stream():
     assert rec.take().shape == (800,)                 # buffer was cleared
 
 
+def test_set_paused_discards_audio_until_resumed():
+    rec = Recorder()
+    rec.start()
+    rec._callback(_frame(1600), 1600, None, None)
+    rec.set_paused(True)                                  # cough key down
+    rec._callback(_frame(1600), 1600, None, None)         # dropped
+    rec._callback(_frame(800), 800, None, None)           # dropped
+    rec.set_paused(False)                                 # cough key up
+    rec._callback(_frame(400), 400, None, None)
+    assert rec.stop().shape == (400,)                     # only post-resume audio
+
+
+def test_resuming_resets_the_endpointer():
+    vad = EndpointDetector(samplerate=16000, silence_ms=500, min_speech_ms=200)
+    rec = Recorder(vad=vad)
+    rec.start()
+    for _ in range(4):
+        rec._callback(_frame(1600, 0.1), 1600, None, None)   # speech heard
+    rec.set_paused(True)
+    rec.set_paused(False)
+    fired = []
+    rec.on_endpoint = lambda: fired.append(True)
+    for _ in range(6):
+        rec._callback(_frame(1600, 0.0), 1600, None, None)   # silence after resume
+    assert fired == []                                    # no stale "speech then pause"
+
+
 def test_vad_endpoint_fires_the_callback_and_only_with_vad():
     fired = []
     rec = Recorder(vad=EndpointDetector(samplerate=16000, silence_ms=500, min_speech_ms=200))

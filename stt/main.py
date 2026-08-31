@@ -206,7 +206,12 @@ def run() -> int:
     def on_mute(muted: bool) -> None:
         indicator.set("off" if muted else "ready")
 
-    listener = Listener(cfg, on_press, on_release, on_mute)
+    def on_cough(active: bool) -> None:
+        recorder.set_paused(active)
+        if active:
+            log.info("cough key — dropping audio until release")
+
+    listener = Listener(cfg, on_press, on_release, on_mute, on_cough)
     stop = threading.Event()
 
     if cfg.battery_saver == "pause":

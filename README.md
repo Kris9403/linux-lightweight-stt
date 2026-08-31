@@ -113,6 +113,7 @@ keeps its default.
 | `hotkey_language` | `{}` | table mapping a key to a language, e.g. `[hotkey_language]` then `KEY_SCROLLLOCK = "hi"` — that key dictates in Hindi, everything else uses `language`. Keys here are listened for even if not in `hotkey` |
 | `hotkey_translate` | `[]` | keys whose output is translated to English — e.g. `hotkey_translate = ["KEY_SCROLLLOCK"]` with `KEY_SCROLLLOCK = "hi"` means "speak Hindi, type English" |
 | `mute_hotkey` | `""` | a key that pauses/resumes the whole listener (indicator goes to "off"). Pick one you don't dictate with, e.g. `"KEY_CAPSLOCK"` |
+| `cough_hotkey` | `""` | a key to **hold** while you clear your throat or talk to someone — incoming audio is dropped until you let go. Mostly for `streaming` mode; the buffer is dumped and the endpointer resets on release |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
 | `language` | `en` | Whisper language, or `"auto"` to detect it per utterance (less reliable on short/noisy clips — that's why it's not the default). Also the default for any key without a `hotkey_language` entry |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |

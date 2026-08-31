@@ -150,6 +150,9 @@ udev/99-uinput.rules
 - `EndpointDetector` — plain RMS-energy VAD (no model). `feed(chunk)` returns
   True once speech has been heard then followed by `silence_ms` of quiet. When a
   `vad` is passed, `_callback` feeds it and fires `on_endpoint` on each segment.
+- `set_paused(bool)` — the "cough key". While paused, `_callback` drops every
+  chunk; pausing also clears the buffer and resuming resets the endpointer so
+  the gap isn't read as a pause.
 
 **hotkey.py**
 - `Listener(cfg, on_press, on_release)` — opens all devices whose caps include
@@ -169,6 +172,10 @@ udev/99-uinput.rules
 - A session is **locked** to `_active_code`; events from any other hotkey are
   dropped until it ends. Each key's language (`hotkey_language` or `language`)
   is stashed on start and handed to `on_release`.
+- `mute_hotkey` toggles `_muted` (blocks all dictation keys); `cough_hotkey`
+  fires `on_cough(True/False)` on its down/up so `main.py` can call
+  `Recorder.set_paused()` — both are checked before the session lock, so they
+  work mid-dictation.
 - No modifier handling, no `on_cycle`.
 
 **indicator.py**
