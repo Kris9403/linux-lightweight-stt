@@ -129,6 +129,16 @@ keeps its default.
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
 | `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
 
+## Mic level meter
+
+```
+./venv/bin/python -m stt.meter
+```
+
+A live RMS bar for the selected mic. Handy for setting `vad_threshold` in
+streaming mode — talk normally, see where the level sits, put the threshold just
+below that and above the quiet-room floor. Ctrl-C to stop.
+
 ## Transcribing a file
 
 ```
