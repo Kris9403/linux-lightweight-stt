@@ -55,6 +55,7 @@ stt/
   hotkey.py      multi-device evdev listener; hold / toggle state machine
   indicator.py   notify-send status + canberra beeps
   doctor.py      `python -m stt.doctor` — checks groups/NPU/ydotoold/uinput/model/mic
+  meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
   main.py        wiring, single-instance lock, logging, signal handling
 convert.sh       one-off: optimum-cli export openvino (throwaway venv)
 setup.sh         rewritten (runtime deps only + groups + udev + services)
