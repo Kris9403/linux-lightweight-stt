@@ -128,6 +128,7 @@ keeps its default.
 | `vad_threshold` | `0.015` | `streaming` only: RMS level counted as speech; raise it in a noisy room |
 | `history` | `true` | append each insertion (timestamp, language, text) to `$XDG_STATE_HOME/lightweight-stt/history.log` |
 | `privacy` | `false` | keep transcripts out of the journal (log lengths only) and out of the history file |
+| `latency_stats` | `false` | log how long each transcription took, and a `count / mean / min / max / p95` summary when the service stops |
 
 ## Mic level meter
 

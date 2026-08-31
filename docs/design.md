@@ -56,6 +56,7 @@ stt/
   indicator.py   notify-send status + canberra beeps
   doctor.py      `python -m stt.doctor` — checks groups/NPU/ydotoold/uinput/model/mic
   meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
+  stats.py       optional transcription-latency timing (latency_stats)
   main.py        wiring, single-instance lock, logging, signal handling
 convert.sh       one-off: optimum-cli export openvino (throwaway venv)
 setup.sh         rewritten (runtime deps only + groups + udev + services)
@@ -77,7 +78,8 @@ udev/99-uinput.rules
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
   `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`).
   Post-processing — `llm_cleanup`, `llm_endpoint`, `llm_model`.
-  Logging — `history`, `privacy`. Collection-valued keys default to empty.
+  Logging — `history`, `privacy`, `latency_stats`. Collection-valued keys
+  default to empty.
 
 **cleanup.py**
 - `clean_text(text, endpoint, model)` — POSTs to `{endpoint}/chat/completions`
@@ -86,6 +88,12 @@ udev/99-uinput.rules
   any error returns the input unchanged with a warning. `main.run()` builds a `cleaner` closure when
   `llm_cleanup` is set and `emit_segment` applies it after transcription but
   before typing — skipped for utterances that matched a `commands` entry.
+
+**stats.py**
+- `Timings` — `add(seconds)` per transcription; `summary()` / `log_summary()`
+  give `count / mean / min / max / p95` in ms. `main.run()` creates one when
+  `latency_stats` is set, `emit_segment` feeds it (even on an empty transcript,
+  so the timing reflects the model call), and the summary is logged on exit.
 
 **inject.py**
 - `probe(cfg) -> Injector` — picks a method, logs the choice, raises
