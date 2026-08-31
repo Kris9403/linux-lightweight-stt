@@ -75,7 +75,7 @@ class Transcriber:
         vocabulary: list[str] | None = None,
         num_beams: int = 1,
     ):
-        self._lang_token = f"<|{language}|>"
+        self._lang_token = self._token(language)
         self._min_speech_ms = min_speech_ms
         self._hotwords = vocab_hotwords(vocabulary, device)
         self._num_beams = resolve_beams(num_beams, device)
@@ -87,18 +87,26 @@ class Transcriber:
         self._pipe = ov_genai.WhisperPipeline(model_dir, device, **kwargs)
         log.info("Whisper ready")
 
+    @staticmethod
+    def _token(language: str | None) -> str | None:
+        """None -> auto-detect (omit the kwarg); 'auto' likewise; else '<|xx|>'."""
+        if not language or language == "auto":
+            return None
+        return f"<|{language}|>"
+
     def transcribe(self, pcm: np.ndarray, language: str | None = None,
                    translate: bool = False) -> str:
         pcm = np.ascontiguousarray(pcm, dtype=np.float32)
         if is_too_short(pcm, self._min_speech_ms):
             return ""
-        lang_token = f"<|{language}|>" if language else self._lang_token
+        lang_token = self._token(language) if language else self._lang_token
         extra = {"hotwords": self._hotwords} if self._hotwords else {}
         if self._num_beams > 1:
             extra["num_beams"] = self._num_beams
+        if lang_token is not None:
+            extra["language"] = lang_token           # omitted -> Whisper auto-detects
         result = self._pipe.generate(
             pcm,
-            language=lang_token,
             task="translate" if translate else "transcribe",
             return_timestamps=False,
             **extra,
