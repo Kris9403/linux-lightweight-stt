@@ -76,6 +76,16 @@ def test_commands_table_loads(tmp_path):
     assert load(path=f).commands == {"new line": "\n", "scratch that": "<undo>"}
 
 
+def test_llm_cleanup_defaults_and_loads(tmp_path):
+    d = load(path=Path("/nonexistent/c.toml"))
+    assert d.llm_cleanup is False and d.llm_model == "llama3.2"
+    assert d.llm_endpoint == "http://localhost:11434/v1"
+    f = tmp_path / "c.toml"
+    f.write_text('llm_cleanup = true\nllm_model = "mistral"\n')
+    c = load(path=f)
+    assert c.llm_cleanup is True and c.llm_model == "mistral"
+
+
 def test_num_beams_defaults_to_one_and_loads(tmp_path):
     assert load(path=Path("/nonexistent/c.toml")).num_beams == 1
     f = tmp_path / "c.toml"
@@ -89,8 +99,8 @@ def test_audio_device_accepts_index_and_name(tmp_path):
     assert load(path=idx).audio_device == 7
 
     name = tmp_path / "n.toml"
-    name.write_text('audio_device = "alsa_input.pci-0000_80_1f.3.analog-stereo"\n')
-    assert load(path=name).audio_device == "alsa_input.pci-0000_80_1f.3.analog-stereo"
+    name.write_text('audio_device = "alsa_input.pci-0000_00_1f.3.analog-stereo"\n')
+    assert load(path=name).audio_device == "alsa_input.pci-0000_00_1f.3.analog-stereo"
 
 
 def test_unknown_key_is_ignored_with_warning(tmp_path, caplog):

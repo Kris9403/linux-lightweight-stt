@@ -138,6 +138,22 @@ def test_non_matching_utterance_still_types_normally():
     assert inj.sent == ["add a new line here "]
 
 
+def test_cleaner_rewrites_the_text_before_typing():
+    inj = FakeInjector()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("um hello like"),
+                 inj, FakeIndicator(), True, cleaner=lambda t: "Hello.")
+    assert inj.sent == ["Hello. "]
+
+
+def test_cleaner_is_skipped_for_commands():
+    inj = FakeInjector()
+    calls = []
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("new line"),
+                 inj, FakeIndicator(), True, commands={"new line": "\n"},
+                 cleaner=lambda t: calls.append(t) or t)
+    assert inj.sent == ["\n"] and calls == []
+
+
 def test_emit_segment_quiet_skips_the_indicator():
     ind = FakeIndicator()
     emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("hi"),
