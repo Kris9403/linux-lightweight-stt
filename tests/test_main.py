@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from stt.main import single_instance_lock, handle_utterance, emit_segment, AlreadyRunning
+from stt.main import (single_instance_lock, handle_utterance, emit_segment,
+                      run_command, AlreadyRunning)
 
 
 class FakeRecorder:
@@ -29,9 +30,17 @@ class FakeTranscriber:
 class FakeInjector:
     def __init__(self):
         self.sent = []
+        self.keys = []
+        self.undos = 0
 
     def send(self, text):
         self.sent.append(text)
+
+    def send_key(self, name, repeat=1):
+        self.keys.append((name, repeat))
+
+    def undo(self):
+        self.undos += 1
 
 
 class FakeIndicator:
@@ -42,13 +51,14 @@ class FakeIndicator:
         self.states.append(state)
 
 
-def _run(text, trailing_space=True, language=None, translate=False, record=None, redact=False):
+def _run(text, trailing_space=True, language=None, translate=False, record=None,
+         redact=False, commands=None):
     rec = FakeRecorder(np.zeros(16000, dtype=np.float32))
     tr = FakeTranscriber(text)
     inj = FakeInjector()
     ind = FakeIndicator()
     handle_utterance(rec, tr, inj, ind, trailing_space, language=language,
-                     translate=translate, record=record, redact=redact)
+                     translate=translate, record=record, redact=redact, commands=commands)
     return inj, ind, tr
 
 
@@ -105,6 +115,27 @@ def test_empty_transcription_is_not_recorded(tmp_path):
     hist = tmp_path / "h.log"
     _run("", record=hist)
     assert not hist.exists()
+
+
+def test_run_command_dispatches_undo_key_and_literal():
+    inj = FakeInjector()
+    run_command("<undo>", inj); assert inj.undos == 1
+    run_command("<key:enter>", inj); assert inj.keys == [("enter", 1)]
+    run_command("\n", inj); assert inj.sent == ["\n"]
+
+
+def test_matching_command_runs_instead_of_typing_and_is_not_recorded(tmp_path):
+    hist = tmp_path / "h.log"
+    inj, ind, _ = _run("New line.", record=hist,
+                       commands={"new line": "\n", "scratch that": "<undo>"})
+    assert inj.sent == ["\n"]              # the action, not the words
+    assert not hist.exists()              # commands aren't transcripts
+    assert ind.states[-1] == "ready"
+
+
+def test_non_matching_utterance_still_types_normally():
+    inj, _, _ = _run("add a new line here", commands={"new line": "\n"})
+    assert inj.sent == ["add a new line here "]
 
 
 def test_emit_segment_quiet_skips_the_indicator():
