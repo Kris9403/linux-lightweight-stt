@@ -68,21 +68,26 @@ udev/99-uinput.rules
 **config.py**
 - `load() -> Config` (frozen dataclass). No file → all defaults. Partial file
   merges over defaults. Unknown keys warn, don't crash.
-- Keys: `mode` (`"hybrid"`), `tap_ms` (350), `hotkey` (`"KEY_F23"` or a list),
-  `hotkey_language` (`{}` — `KEY_* -> lang`, keys here are also listened for),
-  `device` (`"NPU"`), `language` (`"en"` — default for keys without an override),
-  `keyboard` (`"auto"` | explicit
-  `/dev/input/...`), `audio_device` (None | sounddevice index/name),
-  `inject_method` (`"auto"|"ydotool"|"paste"|"xdotool"`), `paste_threshold`
-  (50), `paste_settle_ms` (150), `indicator` (`"both"`), `trailing_space`
-  (true), `min_speech_ms` (300), `hallucinations` (`[]` — extra silence
-  phrases), `cache_dir` (`~/.cache/lightweight-stt/ov`).
+- Keys (see the README table for the full list with defaults): press/hotkey —
+  `mode`, `tap_ms`, `hotkey` (name or list), `hotkey_language`,
+  `hotkey_translate`, `mute_hotkey`, `keyboard`. Audio — `audio_device`,
+  `min_speech_ms`, `vad_silence_ms`, `vad_threshold`. Model — `device`,
+  `language`, `num_beams`, `vocabulary`, `hallucinations`, `cache_dir`.
+  Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
+  `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`).
+  Logging — `history`, `privacy`. Collection-valued keys default to empty.
 
 **inject.py**
 - `probe(cfg) -> Injector` — picks a method, logs the choice, raises
   `NoInjectorError` if nothing viable.
-- `Injector.send(text: str)` — strips, no-ops on empty, routes long/non-ASCII to
-  paste path, restores prior clipboard after paste.
+- `Injector.send(text)` — strips, no-ops on empty, routes long/non-ASCII to the
+  paste path, restores prior clipboard after paste, remembers the length.
+- `Injector.send_key(name, repeat=1)` / `Injector.undo()` — for command mode:
+  press a named key, or backspace over the last `send()`.
+- `main.run_command(action, injector)` maps a `commands` value:
+  `<undo>` → `undo()`, `<key:NAME>` → `send_key(NAME)`, anything else → typed
+  literally. Checked in `emit_segment` against the normalised whole utterance
+  before the normal type path; a matched command is never recorded to history.
 
 **transcribe.py**
 - `Transcriber(model_dir, device, language, cache_dir, min_speech_ms,
