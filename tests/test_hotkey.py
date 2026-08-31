@@ -228,6 +228,33 @@ def test_set_muted_is_idempotent_and_blocks_dictation():
     assert rec.names == ["press", "release"]
 
 
+def test_cough_hotkey_reports_press_and_release():
+    cough = []
+    lis = Listener(Config(hotkey="KEY_F23", cough_hotkey="KEY_RIGHTALT"),
+                   lambda *_: None, lambda *_: None, on_cough=cough.append)
+    ralt = ecodes.ecodes["KEY_RIGHTALT"]
+    lis._handle(ralt, 1)
+    lis._handle(ralt, 2)          # autorepeat while held — ignored
+    lis._handle(ralt, 0)
+    assert cough == [True, False]
+
+
+def test_unknown_cough_hotkey_raises():
+    with pytest.raises(ValueError):
+        Listener(Config(cough_hotkey="KEY_NOPE"), lambda *_: None, lambda *_: None)
+
+
+def test_cough_hotkey_does_not_disturb_an_active_session():
+    rec = Rec()
+    lis = Listener(Config(mode="hold", hotkey="KEY_F23", cough_hotkey="KEY_RIGHTALT"),
+                   rec.press, rec.release, on_cough=lambda _a: None)
+    ralt = ecodes.ecodes["KEY_RIGHTALT"]
+    lis._handle(F23, 1)
+    lis._handle(ralt, 1); lis._handle(ralt, 0)   # cough during dictation
+    lis._handle(F23, 0)
+    assert rec.names == ["press", "release"]      # session still ended cleanly once
+
+
 def test_muting_mid_session_ends_the_recording():
     lis, rec = make("hold", hotkey="KEY_F23", mute_hotkey="KEY_CAPSLOCK")
     lis._handle(F23, 1)                        # recording
