@@ -241,6 +241,10 @@ def run() -> int:
         signal.signal(sig, lambda *_: stop.set())
 
     listener.start()
+    keys = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
+    if keys == ["KEY_F23"]:
+        log.info("hotkey is KEY_F23 (the Copilot key) — set `hotkey` in config "
+                 "if your keyboard doesn't have one")
     log.info("ready — %s %s to talk", "tap" if streaming else "hold", cfg.hotkey)
     try:
         stop.wait()
