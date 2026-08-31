@@ -154,6 +154,16 @@ def test_cleaner_is_skipped_for_commands():
     assert inj.sent == ["\n"] and calls == []
 
 
+def test_timings_records_one_entry_per_segment():
+    from stt.stats import Timings
+    t = Timings()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("hi"),
+                 FakeInjector(), FakeIndicator(), True, timings=t)
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber(""),
+                 FakeInjector(), FakeIndicator(), True, timings=t)
+    assert len(t) == 2          # timed even when the transcript is empty
+
+
 def test_emit_segment_quiet_skips_the_indicator():
     ind = FakeIndicator()
     emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("hi"),

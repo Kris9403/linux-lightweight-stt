@@ -86,6 +86,13 @@ def test_llm_cleanup_defaults_and_loads(tmp_path):
     assert c.llm_cleanup is True and c.llm_model == "mistral"
 
 
+def test_latency_stats_defaults_off_and_loads(tmp_path):
+    assert load(path=Path("/nonexistent/c.toml")).latency_stats is False
+    f = tmp_path / "c.toml"
+    f.write_text("latency_stats = true\n")
+    assert load(path=f).latency_stats is True
+
+
 def test_num_beams_defaults_to_one_and_loads(tmp_path):
     assert load(path=Path("/nonexistent/c.toml")).num_beams == 1
     f = tmp_path / "c.toml"
