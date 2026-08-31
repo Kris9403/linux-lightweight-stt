@@ -91,7 +91,7 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
             if not quiet:
                 indicator.set("ready")
             return
-    if text and cleaner is not None:
+    if text and cleaner is not None and not redact:   # privacy: transcript stays in-process
         text = cleaner(text)
     if text:
         if redact:
@@ -155,7 +155,9 @@ def run() -> int:
 
     record = None if cfg.privacy else (history_path() if cfg.history else None)
     cleaner = None
-    if cfg.llm_cleanup:
+    if cfg.llm_cleanup and cfg.privacy:
+        log.info("llm cleanup off — privacy mode keeps transcripts in-process")
+    elif cfg.llm_cleanup:
         cleaner = lambda t: clean_text(t, cfg.llm_endpoint, cfg.llm_model)  # noqa: E731
         log.info("llm cleanup on via %s (%s)", cfg.llm_endpoint, cfg.llm_model)
     timings = Timings() if cfg.latency_stats else None
