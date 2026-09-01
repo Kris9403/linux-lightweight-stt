@@ -34,6 +34,23 @@ class NoInjectorError(RuntimeError):
     pass
 
 
+class InjectionFailed(RuntimeError):
+    """A type/paste/key-press subprocess failed. Carries an actionable hint
+    when the cause is a known one (ydotoold gone, binary missing)."""
+
+
+def _run(cmd: list[str]) -> None:
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError:
+        raise InjectionFailed(f"{cmd[0]} not found — is it installed?") from None
+    except subprocess.CalledProcessError as e:
+        hint = ""
+        if cmd[0] == "ydotool" and not _ydotool_usable():
+            hint = " — ydotoold isn't running (systemctl --user start ydotool)"
+        raise InjectionFailed(f"'{' '.join(cmd[:2])}' failed{hint}") from e
+
+
 def _ydotool_socket() -> Path | None:
     env = os.environ.get("YDOTOOL_SOCKET")
     if env:
@@ -109,9 +126,9 @@ class Injector:
             raise ValueError(f"unknown key: {name!r}")
         seq = [f"{code}:1", f"{code}:0"] * max(1, repeat)
         if self.method == "xdotool":
-            subprocess.run(["xdotool", "key", "--clearmodifiers"] + [name] * repeat, check=True)
+            _run(["xdotool", "key", "--clearmodifiers"] + [name] * repeat)
         else:
-            subprocess.run(["ydotool", "key", *seq], check=True)
+            _run(["ydotool", "key", *seq])
         self._last_len = 0
 
     def undo(self) -> None:
@@ -122,25 +139,22 @@ class Injector:
 
     def _type(self, text: str) -> None:
         if self.method == "xdotool":
-            subprocess.run(["xdotool", "type", "--clearmodifiers", "--", text], check=True)
+            _run(["xdotool", "type", "--clearmodifiers", "--", text])
         else:
             # ydotool's default 20/20 crawls (~40ms/char). 0/2 is too aggressive
             # though — Shift release races the next key (caps stick) and Space is
             # too brief for the compositor to see (spaces drop). 4/12 is fast
             # (~16ms/char) and reliable across rapid consecutive calls.
-            subprocess.run(
-                ["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", text],
-                check=True,
-            )
+            _run(["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", text])
 
     def _paste(self, text: str) -> None:
         saved = self._clipboard_get()
         self._clipboard_set(text)
         try:
             if self.method == "xdotool":
-                subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+v"], check=True)
+                _run(["xdotool", "key", "--clearmodifiers", "ctrl+v"])
             else:
-                subprocess.run(["ydotool", "key", *_CTRL_V], check=True)
+                _run(["ydotool", "key", *_CTRL_V])
             time.sleep(self.settle_ms / 1000)
         finally:
             if saved is not None:
@@ -158,7 +172,7 @@ class Injector:
 
     @staticmethod
     def _clipboard_set(text: str) -> None:
-        subprocess.run(["wl-copy", "--", text], check=True)
+        _run(["wl-copy", "--", text])
 
 
 def _main() -> int:
