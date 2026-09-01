@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from stt.inject import InjectionFailed
 from stt.main import (single_instance_lock, handle_utterance, emit_segment,
                       run_command, AlreadyRunning)
 
@@ -192,6 +193,16 @@ def test_emit_segment_transcribes_a_raw_pcm_and_types_it(tmp_path):
     assert tr.seen_translate is True and tr.seen_language == "fr"
     assert "\tfr→en\tsegment text" in hist.read_text()
     assert ind.states[-1] == "ready"
+
+
+def test_injection_failure_propagates_so_run_can_log_it_cleanly():
+    class BoomInjector(FakeInjector):
+        def send(self, text):
+            raise InjectionFailed("ydotool died")
+
+    with pytest.raises(InjectionFailed):
+        emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("hello"),
+                     BoomInjector(), FakeIndicator(), True)
 
 
 def test_redact_keeps_the_transcript_out_of_logs_and_history(tmp_path, caplog):

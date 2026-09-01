@@ -20,7 +20,7 @@ from .cleanup import clean_text
 from .config import load
 from .hotkey import Listener
 from .indicator import Indicator
-from .inject import NoInjectorError, probe
+from .inject import InjectionFailed, NoInjectorError, probe
 from .power import on_power_saver
 from .stats import Timings
 from .transcribe import Transcriber
@@ -172,6 +172,8 @@ def run() -> int:
                          language=st["lang"], translate=st["translate"],
                          record=record, redact=cfg.privacy, quiet=True,
                          commands=cfg.commands, cleaner=cleaner, timings=timings)
+        except InjectionFailed as exc:
+            log.error("could not type the result: %s", exc)
         except Exception:
             log.exception("segment failed")
 
@@ -196,6 +198,9 @@ def run() -> int:
                              cfg.trailing_space, language=language, translate=translate,
                              record=record, redact=cfg.privacy, commands=cfg.commands,
                              cleaner=cleaner, timings=timings)
+        except InjectionFailed as exc:
+            log.error("could not type the result: %s", exc)
+            indicator.set("error")
         except Exception:
             log.exception("utterance failed")
             indicator.set("error")

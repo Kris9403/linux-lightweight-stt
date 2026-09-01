@@ -85,6 +85,10 @@ For a quick look at how it's configured and whether the daemon is up:
 ./venv/bin/python -m stt.status
 ```
 
+If typing stops working mid-session (`ydotoold` crashed, got restarted, whatever),
+the journal logs one plain line for it instead of a traceback, usually with the
+fix — `journalctl --user -u lightweight-stt -f` while you retry the hotkey.
+
 ## Other compositors
 
 Built and tested on GNOME Wayland. The moving parts aren't GNOME-specific:

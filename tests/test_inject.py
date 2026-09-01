@@ -132,3 +132,41 @@ def test_send_long_text_types_when_paste_unavailable(calls):
     assert calls == [
         ["ydotool", "type", "--key-delay", "4", "--key-hold", "12", "--", "y" * 80]
     ]
+
+
+def test_run_wraps_a_missing_binary(monkeypatch):
+    monkeypatch.setattr(inject.subprocess, "run",
+                        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
+    with pytest.raises(inject.InjectionFailed, match="not found"):
+        inject._run(["ydotool", "type", "--", "hi"])
+
+
+def test_run_hints_at_a_dead_ydotoold(monkeypatch):
+    def boom(cmd, **kw):
+        raise inject.subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(inject.subprocess, "run", boom)
+    monkeypatch.setattr(inject, "_ydotool_usable", lambda: False)
+    with pytest.raises(inject.InjectionFailed, match="ydotoold isn't running"):
+        inject._run(["ydotool", "type", "--", "hi"])
+
+
+def test_run_skips_the_hint_when_the_daemon_is_up(monkeypatch):
+    def boom(cmd, **kw):
+        raise inject.subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(inject.subprocess, "run", boom)
+    monkeypatch.setattr(inject, "_ydotool_usable", lambda: True)
+    with pytest.raises(inject.InjectionFailed) as exc:
+        inject._run(["ydotool", "type", "--", "hi"])
+    assert "ydotoold" not in str(exc.value)
+
+
+def test_send_raises_injection_failed_when_ydotool_dies(monkeypatch):
+    def boom(cmd, **kw):
+        raise inject.subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(inject.subprocess, "run", boom)
+    monkeypatch.setattr(inject, "_ydotool_usable", lambda: False)
+    with pytest.raises(inject.InjectionFailed):
+        inject.Injector("ydotool", can_paste=False).send("hello")
