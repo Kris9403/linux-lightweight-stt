@@ -120,6 +120,12 @@ udev/99-uinput.rules
   paste path, restores prior clipboard after paste, remembers the length.
 - `Injector.send_key(name, repeat=1)` / `Injector.undo()` — for command mode:
   press a named key, or backspace over the last `send()`.
+- Every `ydotool`/`xdotool`/`wl-copy` call goes through `_run()`, which turns a
+  missing binary or a failed subprocess into `InjectionFailed` — with an
+  "ydotoold isn't running" hint when that's specifically why `ydotool` failed.
+  `main.run()` catches it around each utterance and logs one clean line
+  instead of a traceback; each call still retries fresh next time (nothing is
+  cached), so a `ydotoold` restart recovers on its own.
 - `main.run_command(action, injector)` maps a `commands` value:
   `<undo>` → `undo()`, `<key:NAME>` → `send_key(NAME)`, anything else → typed
   literally. Checked in `emit_segment` against the normalised whole utterance
