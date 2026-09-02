@@ -82,7 +82,7 @@ udev/99-uinput.rules
 - Keys (see the README table for the full list with defaults): press/hotkey —
   `mode`, `tap_ms`, `hotkey` (name or list), `hotkey_language`,
   `hotkey_translate`, `hotkey_format`, `mute_hotkey`, `cough_hotkey`,
-  `keyboard`. Audio — `audio_device`,
+  `keyboard`. Audio — `audio_device`, `follow_default_mic`,
   `min_speech_ms`, `vad_silence_ms`, `vad_threshold`. Model — `device`,
   `language`, `num_beams`, `vocabulary`, `hallucinations`, `cache_dir`.
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
@@ -178,6 +178,9 @@ udev/99-uinput.rules
 - `.stop() -> np.ndarray` returns the buffered utterance (capped at
   `max_seconds`) and closes the stream. `.take()` returns the buffer and clears
   it **without** closing — used between endpoints in streaming mode.
+- `.rebind()` reopens the stream (no-op if not started). `main.run()` runs a 5 s
+  poller in streaming mode — when `follow_default_mic` is set and no mic is
+  pinned — that calls it if `sounddevice`'s default input name changes.
 - `EndpointDetector` — plain RMS-energy VAD (no model). `feed(chunk)` returns
   True once speech has been heard then followed by `silence_ms` of quiet. When a
   `vad` is passed, `_callback` feeds it and fires `on_endpoint` on each segment.
