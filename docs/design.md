@@ -58,6 +58,7 @@ stt/
   meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
   status.py      `python -m stt.status` — config + environment snapshot (no NPU)
   textfmt.py     snake/camel/raw reshaping for hotkey_format
+  init.py        `python -m stt.init` — write a commented starter config.toml
   stats.py       optional transcription-latency timing (latency_stats)
   power.py       read the active power profile (battery_saver)
   main.py        wiring, single-instance lock, logging, signal handling
@@ -98,6 +99,11 @@ udev/99-uinput.rules
   before typing — skipped for utterances that matched a `commands` entry, and
   not built at all when `privacy` is on (the transcript would otherwise be
   POSTed off-process); `emit_segment` also guards on `redact` as a backstop.
+
+**init.py**
+- `run()` writes a fully-commented `config.toml` (every line a default) to
+  `DEFAULT_PATH`, refusing if it exists. Not the autodetecting first-run wizard
+  — just the template half; a test asserts every `Config` field appears in it.
 
 **status.py**
 - `run()` prints a snapshot — daemon up (via `ss` for `@lightweight-stt`), mode,
