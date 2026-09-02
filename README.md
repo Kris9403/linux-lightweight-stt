@@ -113,6 +113,8 @@ default with a warning rather than misbehaving later.
 
 `./venv/bin/python -m stt.init` drops a fully commented starter file at that
 path (it won't overwrite an existing one) — uncomment what you want to change.
+Add `--detect` to also fill in `device` (whichever of NPU/GPU/CPU OpenVINO
+sees) and `inject_method` (whichever injector actually works here).
 
 | key | default | meaning |
 |---|---|---|

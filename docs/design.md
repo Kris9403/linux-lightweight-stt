@@ -103,9 +103,13 @@ udev/99-uinput.rules
   POSTed off-process); `emit_segment` also guards on `redact` as a backstop.
 
 **init.py**
-- `run()` writes a fully-commented `config.toml` (every line a default) to
-  `DEFAULT_PATH`, refusing if it exists. Not the autodetecting first-run wizard
-  — just the template half; a test asserts every `Config` field appears in it.
+- `run(detect=False)` writes a fully-commented `config.toml` (every line a
+  default) to `DEFAULT_PATH`, refusing if it exists. A test asserts every
+  `Config` field appears in the template.
+- `--detect` → `_detect()` best-effort reads OpenVINO's `available_devices`
+  (→ `device`) and `inject.probe()` (→ `inject_method`); `_with_detected()`
+  uncomments just those lines and adds a `# detected here:` note. Anything that
+  errors is simply left commented. No model load, no inference.
 
 **appwatch.py**
 - `active_app()` — focused window's `app_id` / class, lowercased, via
