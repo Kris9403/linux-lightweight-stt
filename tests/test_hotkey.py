@@ -16,15 +16,15 @@ def clock(monkeypatch):
 class Rec:
     def __init__(self):
         self.events = []       # ("press"/"release", lang)
-        self.calls = []        # full (name, lang, translate)
+        self.calls = []        # full (name, lang, translate, fmt)
 
-    def press(self, lang, translate=False):
+    def press(self, lang, translate=False, fmt=None):
         self.events.append(("press", lang))
-        self.calls.append(("press", lang, translate))
+        self.calls.append(("press", lang, translate, fmt))
 
-    def release(self, lang, translate=False):
+    def release(self, lang, translate=False, fmt=None):
         self.events.append(("release", lang))
-        self.calls.append(("release", lang, translate))
+        self.calls.append(("release", lang, translate, fmt))
 
     @property
     def names(self):
@@ -166,8 +166,20 @@ def test_translate_key_flags_the_utterance_and_is_listened_for():
     lis._handle(F23, 1); lis._handle(F23, 0)
     lis._handle(SLK, 1); lis._handle(SLK, 0)
     assert rec.calls == [
-        ("press", "en", False), ("release", "en", False),
-        ("press", "en", True), ("release", "en", True),
+        ("press", "en", False, None), ("release", "en", False, None),
+        ("press", "en", True, None), ("release", "en", True, None),
+    ]
+
+
+def test_format_key_carries_its_format_and_is_listened_for():
+    lis, rec = make("hold", hotkey="KEY_F23",
+                    hotkey_format={"KEY_SCROLLLOCK": "snake"})
+    assert SLK in lis.hotkey_codes
+    lis._handle(F23, 1); lis._handle(F23, 0)          # plain key -> no format
+    lis._handle(SLK, 1); lis._handle(SLK, 0)          # snake key
+    assert rec.calls == [
+        ("press", "en", False, None), ("release", "en", False, None),
+        ("press", "en", False, "snake"), ("release", "en", False, "snake"),
     ]
 
 
