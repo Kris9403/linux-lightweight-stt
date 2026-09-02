@@ -41,6 +41,8 @@ class Config:
     hallucinations: list[str] = field(default_factory=list)  # extra silence artifacts to drop
     vocabulary: list[str] = field(default_factory=list)      # names/jargon hints (GPU/CPU only)
     commands: dict[str, str] = field(default_factory=dict)   # spoken phrase -> action
+    profiles: dict[str, dict] = field(default_factory=dict)  # name -> overrides (language/trailing_space/llm_cleanup/format/commands)
+    apps: dict[str, str] = field(default_factory=dict)       # focused-window app-id substring -> profile name
     llm_cleanup: bool = False            # post-process transcripts through an LLM
     llm_endpoint: str = "http://localhost:11434/v1"   # any OpenAI-compatible server
     llm_model: str = "llama3.2"
@@ -59,6 +61,27 @@ _ENUMS = {
 _POSITIVE = ("tap_ms", "paste_threshold", "paste_settle_ms", "min_speech_ms",
              "vad_silence_ms", "num_beams", "vad_threshold")
 _FORMATS = {"snake", "camel", "raw"}
+_PROFILE_KEYS = {"language", "trailing_space", "llm_cleanup", "format", "commands"}
+
+
+def _clean_profiles(profiles: dict) -> dict:
+    out: dict = {}
+    for name, prof in profiles.items():
+        if not isinstance(prof, dict):
+            log.warning("config profiles.%s is not a table — ignoring", name)
+            continue
+        kept = {}
+        for key, value in prof.items():
+            if key not in _PROFILE_KEYS:
+                log.warning("config profiles.%s.%s is not overridable per app — ignoring "
+                            "(allowed: %s)", name, key, sorted(_PROFILE_KEYS))
+            elif key == "format" and value not in _FORMATS:
+                log.warning("config profiles.%s.format=%r is not one of %s — ignoring",
+                            name, value, sorted(_FORMATS))
+            else:
+                kept[key] = value
+        out[name] = kept
+    return out
 
 
 def _validate(cfg: Config) -> Config:
@@ -82,6 +105,16 @@ def _validate(cfg: Config) -> Config:
         fixed["hotkey_format"] = {k: v for k, v in cfg.hotkey_format.items() if v in _FORMATS}
         log.warning("config hotkey_format has unknown modes %s — dropping them (use %s)",
                     bad, sorted(_FORMATS))
+    if cfg.profiles:
+        clean = _clean_profiles(cfg.profiles)
+        if clean != cfg.profiles:
+            fixed["profiles"] = clean
+    profiles = fixed.get("profiles", cfg.profiles)
+    good_apps = {a: p for a, p in cfg.apps.items() if p in profiles}
+    if good_apps != cfg.apps:
+        fixed["apps"] = good_apps
+        log.warning("config apps points at profiles that don't exist — dropping %s",
+                    {a: p for a, p in cfg.apps.items() if a not in good_apps})
     return replace(cfg, **fixed) if fixed else cfg
 
 

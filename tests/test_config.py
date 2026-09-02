@@ -175,6 +175,33 @@ def test_a_valid_config_produces_no_warnings(tmp_path, caplog):
     assert caplog.records == []
 
 
+def test_profiles_and_apps_load(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('[profiles.coding]\ntrailing_space = false\nformat = "snake"\n'
+                 '[apps]\n"code" = "coding"\n')
+    cfg = load(path=f)
+    assert cfg.profiles == {"coding": {"trailing_space": False, "format": "snake"}}
+    assert cfg.apps == {"code": "coding"}
+
+
+def test_profile_drops_unknown_and_bad_keys(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('[profiles.coding]\ntrailing_space = false\ndevice = "GPU"\nformat = "kebab"\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.profiles == {"coding": {"trailing_space": False}}
+    assert "device" in caplog.text and "kebab" in caplog.text
+
+
+def test_apps_pointing_at_missing_profile_is_dropped(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('[profiles.coding]\nformat = "snake"\n[apps]\n"code" = "coding"\n"x" = "ghost"\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.apps == {"code": "coding"}
+    assert "ghost" in caplog.text
+
+
 def test_cache_dir_is_expanded(tmp_path):
     cfg_file = tmp_path / "config.toml"
     cfg_file.write_text('cache_dir = "~/somewhere/ov"\n')
