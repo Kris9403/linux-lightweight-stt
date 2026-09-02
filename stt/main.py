@@ -23,6 +23,7 @@ from .indicator import Indicator
 from .inject import InjectionFailed, NoInjectorError, probe
 from .power import on_power_saver
 from .stats import Timings
+from .textfmt import apply_format
 from .transcribe import Transcriber
 
 log = logging.getLogger("stt")
@@ -72,7 +73,7 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
                  language: str | None = None, translate: bool = False,
                  record: Path | None = None, redact: bool = False,
                  quiet: bool = False, commands: dict | None = None,
-                 cleaner=None, timings=None) -> None:
+                 cleaner=None, timings=None, text_format: str | None = None) -> None:
     """Transcribe one audio segment and type it. Shared by push-to-talk and the
     continuous-mode worker. `quiet` skips the indicator so the chime can't feed
     back into the mic between segments."""
@@ -93,6 +94,8 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
             return
     if text and cleaner is not None and not redact:   # privacy: transcript stays in-process
         text = cleaner(text)
+    if text and text_format:
+        text = apply_format(text, text_format)
     if text:
         if redact:
             log.info("%.1fs audio%s -> %d chars", len(pcm) / 16000, tag, len(text))
@@ -112,12 +115,13 @@ def emit_segment(pcm, transcriber, injector, indicator, trailing_space: bool,
 def handle_utterance(recorder, transcriber, injector, indicator, trailing_space: bool,
                      language: str | None = None, translate: bool = False,
                      record: Path | None = None, redact: bool = False,
-                     commands: dict | None = None, cleaner=None, timings=None) -> None:
+                     commands: dict | None = None, cleaner=None, timings=None,
+                     text_format: str | None = None) -> None:
     pcm = recorder.stop()
     indicator.set("processing")
     emit_segment(pcm, transcriber, injector, indicator, trailing_space,
                  language=language, translate=translate, record=record, redact=redact,
-                 commands=commands, cleaner=cleaner, timings=timings)
+                 commands=commands, cleaner=cleaner, timings=timings, text_format=text_format)
 
 
 def run() -> int:
@@ -163,7 +167,7 @@ def run() -> int:
     timings = Timings() if cfg.latency_stats else None
     if timings is not None:
         log.info("latency stats on")
-    st = {"lang": cfg.language, "translate": False}   # current streaming session
+    st = {"lang": cfg.language, "translate": False, "fmt": None}   # current streaming session
     segments: queue.Queue = queue.Queue()
 
     def _emit(pcm) -> None:
@@ -171,16 +175,18 @@ def run() -> int:
             emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
                          language=st["lang"], translate=st["translate"],
                          record=record, redact=cfg.privacy, quiet=True,
-                         commands=cfg.commands, cleaner=cleaner, timings=timings)
+                         commands=cfg.commands, cleaner=cleaner, timings=timings,
+                         text_format=st["fmt"])
         except InjectionFailed as exc:
             log.error("could not type the result: %s", exc)
         except Exception:
             log.exception("segment failed")
 
-    def on_press(language: str, translate: bool) -> None:
+    def on_press(language: str, translate: bool, fmt: str | None = None) -> None:
         try:
-            log.info("hotkey down — listening [%s%s]", language, "→en" if translate else "")
-            st["lang"], st["translate"] = language, translate
+            log.info("hotkey down — listening [%s%s%s]", language,
+                     "→en" if translate else "", f" {fmt}" if fmt else "")
+            st["lang"], st["translate"], st["fmt"] = language, translate, fmt
             detail = (language + ("→en" if translate else "")) if language != cfg.language or translate else None
             indicator.set("listening", detail=detail)
             recorder.start()
@@ -188,7 +194,7 @@ def run() -> int:
             log.exception("could not start recording")
             indicator.set("error")
 
-    def on_release(language: str, translate: bool) -> None:
+    def on_release(language: str, translate: bool, fmt: str | None = None) -> None:
         if streaming:
             segments.put(recorder.stop())      # final tail; worker transcribes it
             indicator.set("ready")
@@ -197,7 +203,7 @@ def run() -> int:
             handle_utterance(recorder, transcriber, injector, indicator,
                              cfg.trailing_space, language=language, translate=translate,
                              record=record, redact=cfg.privacy, commands=cfg.commands,
-                             cleaner=cleaner, timings=timings)
+                             cleaner=cleaner, timings=timings, text_format=fmt)
         except InjectionFailed as exc:
             log.error("could not type the result: %s", exc)
             indicator.set("error")
