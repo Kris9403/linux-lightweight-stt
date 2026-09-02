@@ -156,6 +156,29 @@ def test_cleaner_is_skipped_when_redacting():
     assert calls == []
 
 
+def test_text_format_reshapes_the_transcript_before_typing():
+    inj = FakeInjector()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("my user name"),
+                 inj, FakeIndicator(), True, text_format="snake")
+    assert inj.sent == ["my_user_name "]
+
+
+def test_text_format_runs_after_the_cleaner():
+    inj = FakeInjector()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("um my user name"),
+                 inj, FakeIndicator(), True, text_format="camel",
+                 cleaner=lambda t: t.replace("um ", ""))
+    assert inj.sent == ["myUserName "]
+
+
+def test_text_format_is_skipped_for_commands():
+    inj = FakeInjector()
+    emit_segment(np.zeros(16000, dtype=np.float32), FakeTranscriber("new line"),
+                 inj, FakeIndicator(), True, commands={"new line": "\n"},
+                 text_format="snake")
+    assert inj.sent == ["\n"]
+
+
 def test_cleaner_is_skipped_for_commands():
     inj = FakeInjector()
     calls = []

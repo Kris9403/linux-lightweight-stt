@@ -3,8 +3,9 @@
 Watches the configured key(s) — `hotkey` may be one name or a list, plus any keys
 named in `hotkey_language`, so a laptop key and an external-keyboard key can both
 trigger. Each key carries a language (its `hotkey_language` entry, or the default
-`language`), passed to the callbacks so one key can dictate English and another
-Hindi.
+`language`), a translate flag (`hotkey_translate`), and an optional output
+format (`hotkey_format` — snake/camel/raw), all passed to the callbacks so one
+key can dictate English prose and another lay down `snake_case` identifiers.
 
 Modes: HOLD (keydown starts, keyup stops), TOGGLE (each keydown flips), and
 HYBRID — hold longer than `tap_ms` for push-to-talk, or quick-tap to latch
@@ -38,10 +39,12 @@ class Listener:
         names = [cfg.hotkey] if isinstance(cfg.hotkey, str) else list(cfg.hotkey)
         names += [n for n in cfg.hotkey_language if n not in names]
         names += [n for n in cfg.hotkey_translate if n not in names]
+        names += [n for n in cfg.hotkey_format if n not in names]
         self._default_lang = cfg.language
         self.hotkey_codes: set[int] = set()
         self._key_lang: dict[int, str] = {}
         self._key_translate: set[int] = set()
+        self._key_format: dict[int, str] = {}
         for name in names:
             try:
                 code = ecodes.ecodes[name]
@@ -51,6 +54,8 @@ class Listener:
             self._key_lang[code] = cfg.hotkey_language.get(name, cfg.language)
             if name in cfg.hotkey_translate:
                 self._key_translate.add(code)
+            if name in cfg.hotkey_format:
+                self._key_format[code] = cfg.hotkey_format[name]
         self._names = names
         self.mode = cfg.mode
         self._tap_max = cfg.tap_ms / 1000
@@ -77,6 +82,7 @@ class Listener:
         self._active_code: int | None = None   # keycode that owns the current session
         self._active_lang = cfg.language
         self._active_translate = False
+        self._active_format: str | None = None
         self._latched = False                  # hybrid: a quick tap latched recording
         self._down_t = 0.0
         self._sel = selectors.DefaultSelector()
@@ -142,12 +148,13 @@ class Listener:
         self._active_code = code
         self._active_lang = self._key_lang.get(code, self._default_lang)
         self._active_translate = code in self._key_translate
-        self._on_press(self._active_lang, self._active_translate)
+        self._active_format = self._key_format.get(code)
+        self._on_press(self._active_lang, self._active_translate, self._active_format)
 
     def _end(self) -> None:
         self._active_code = None
         self._latched = False
-        self._on_release(self._active_lang, self._active_translate)
+        self._on_release(self._active_lang, self._active_translate, self._active_format)
 
     @staticmethod
     def _is_keyboard(dev) -> bool:
