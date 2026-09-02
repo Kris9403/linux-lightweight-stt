@@ -26,6 +26,7 @@ class Config:
     language: str = "en"                  # default for keys without an override
     keyboard: str = "auto"               # auto | /dev/input/eventN
     audio_device: int | str | None = None  # sounddevice index/name; None = system default
+    follow_default_mic: bool = False     # streaming: reopen the mic when the system default changes
     inject_method: str = "auto"          # auto | ydotool | paste | xdotool
     paste_threshold: int = 50            # chars: longer -> clipboard paste path
     paste_settle_ms: int = 150          # pause after Ctrl+V before restoring the clipboard

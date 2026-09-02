@@ -92,6 +92,16 @@ class Recorder:
         self._chunks.clear()
         if self._vad is not None:
             self._vad.reset()
+        self._open()
+
+    def rebind(self) -> None:
+        """Reopen the stream — used when the system default input changes under a
+        long-running streaming session. The in-progress segment is dropped; the
+        audio source just changed anyway."""
+        if self._stream is not None:
+            self.start()
+
+    def _open(self) -> None:
         self._teardown()
         import sounddevice as sd
 

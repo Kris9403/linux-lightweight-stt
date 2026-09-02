@@ -117,6 +117,13 @@ def test_num_beams_defaults_to_one_and_loads(tmp_path):
     assert load(path=f).num_beams == 5
 
 
+def test_follow_default_mic_defaults_off_and_loads(tmp_path):
+    assert load(path=Path("/nonexistent/c.toml")).follow_default_mic is False
+    f = tmp_path / "c.toml"
+    f.write_text("follow_default_mic = true\n")
+    assert load(path=f).follow_default_mic is True
+
+
 def test_audio_device_accepts_index_and_name(tmp_path):
     idx = tmp_path / "i.toml"
     idx.write_text("audio_device = 7\n")

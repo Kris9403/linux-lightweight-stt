@@ -40,6 +40,7 @@ TEMPLATE = """\
 
 # --- audio ---
 # audio_device = ""            # sounddevice index or name substring; unset = system default
+# follow_default_mic = false   # streaming: reopen the mic when the system default changes
 # min_speech_ms = 300
 # vad_silence_ms = 700         # streaming: quiet gap that ends a phrase
 # vad_threshold = 0.025        # streaming: RMS level counted as speech

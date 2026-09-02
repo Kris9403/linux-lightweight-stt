@@ -128,6 +128,7 @@ path (it won't overwrite an existing one) — uncomment what you want to change.
 | `language` | `en` | Whisper language, or `"auto"` to detect it per utterance (less reliable on short/noisy clips — that's why it's not the default). Also the default for any key without a `hotkey_language` entry |
 | `keyboard` | `auto` | watch every keyboard, or pin one `/dev/input/eventN` |
 | `audio_device` | unset | mic to record from — a `sounddevice` index or name substring; unset uses the system default |
+| `follow_default_mic` | `false` | `streaming` only, and only when `audio_device` is unset: poll the system default input every few seconds and reopen the mic if it changed (e.g. a Bluetooth headset connecting mid-session). The segment in progress is dropped |
 | `inject_method` | `auto` | `auto`, `ydotool`, `paste`, or `xdotool` |
 | `paste_threshold` | `50` | characters above which the clipboard path is used |
 | `paste_settle_ms` | `150` | pause after Ctrl+V before restoring the old clipboard; raise it if a slow app pastes stale text |
