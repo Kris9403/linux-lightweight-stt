@@ -58,6 +58,15 @@ def _norm(text: str) -> str:
     return text.strip().lower().rstrip(".!?").strip()
 
 
+def _default_input_name() -> str | None:
+    try:
+        import sounddevice as sd
+
+        return sd.query_devices(kind="input").get("name")
+    except Exception:  # noqa: BLE001 — a probe failure just means "no change"
+        return None
+
+
 def pick_profile(profiles: dict, apps: dict, app: str | None) -> dict:
     """The [profiles] entry whose [apps] key is a substring of the focused
     window's app id, or {} when nothing matches."""
@@ -268,6 +277,18 @@ def run() -> int:
                     prev = now
 
         threading.Thread(target=power_watch, name="power", daemon=True).start()
+
+    if streaming and cfg.audio_device is None and cfg.follow_default_mic:
+        def mic_watch() -> None:
+            cur = _default_input_name()
+            while not stop.wait(5):
+                new = _default_input_name()
+                if new and new != cur:
+                    log.info("default mic changed (%s -> %s) — reopening", cur, new)
+                    recorder.rebind()
+                    cur = new
+
+        threading.Thread(target=mic_watch, name="mic", daemon=True).start()
 
     def worker() -> None:
         while not stop.is_set():
