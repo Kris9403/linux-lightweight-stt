@@ -1,16 +1,18 @@
 """Write a starter config file with the common options shown at their defaults.
 
-    python -m stt.init
+    python -m stt.init            # all lines commented — behaves like no config
+    python -m stt.init --detect   # also fill in device / inject_method from this machine
 
-Every line is commented out, so a fresh run behaves exactly like having no
-config at all — uncomment what you want to change. Refuses if the file already
-exists.
+Refuses if the file already exists.
 """
 from __future__ import annotations
 
+import logging
 import sys
 
 from .config import DEFAULT_PATH
+
+log = logging.getLogger("stt")
 
 TEMPLATE = """\
 # lightweight-stt config. Everything is optional — uncomment a line to change it.
@@ -84,15 +86,54 @@ TEMPLATE = """\
 """
 
 
-def run() -> int:
+def _detect() -> dict[str, str]:
+    """Best-effort: which OpenVINO device to prefer, and which injector works.
+    Anything that errors is just left out."""
+    found: dict[str, str] = {}
+    try:
+        import openvino as ov
+
+        devs = ov.Core().available_devices
+        found["device"] = next((d for d in ("NPU", "GPU", "CPU") if d in devs), "CPU")
+    except Exception as e:  # noqa: BLE001
+        log.warning("could not query OpenVINO devices: %s", e)
+    try:
+        from .config import load
+        from .inject import NoInjectorError, probe
+
+        found["inject_method"] = probe(load()).method
+    except NoInjectorError:
+        pass
+    except Exception as e:  # noqa: BLE001
+        log.warning("could not probe the injector: %s", e)
+    return found
+
+
+def _with_detected(text: str, found: dict[str, str]) -> str:
+    """Uncomment the `# key = "..."` line for each detected value and set it, and
+    add a note near the top."""
+    import re
+
+    for key, value in found.items():
+        text = re.sub(rf'(?m)^# ({re.escape(key)}) = "[^"]*"',
+                      rf'\1 = "{value}"', text, count=1)
+    if found:
+        note = "# detected here: " + ", ".join(f"{k}={v}" for k, v in found.items())
+        text = text.replace("\n", "\n" + note + "\n", 1)
+    return text
+
+
+def run(detect: bool = False) -> int:
     if DEFAULT_PATH.exists():
         print(f"{DEFAULT_PATH} already exists — leaving it alone", file=sys.stderr)
         return 1
+    text = _with_detected(TEMPLATE, _detect()) if detect else TEMPLATE
     DEFAULT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DEFAULT_PATH.write_text(TEMPLATE)
+    DEFAULT_PATH.write_text(text)
     print(f"wrote {DEFAULT_PATH}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(run())
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    raise SystemExit(run(detect="--detect" in sys.argv))
