@@ -72,7 +72,11 @@ udev/99-uinput.rules
 
 **config.py**
 - `load() -> Config` (frozen dataclass). No file → all defaults. Partial file
-  merges over defaults. Unknown keys warn, don't crash.
+  merges over defaults. Unknown keys warn, don't crash. `_validate()` then
+  swaps any out-of-range enum (`mode`, `device`, `inject_method`, `indicator`,
+  `battery_saver`), non-positive/non-numeric knob (`tap_ms`, `*_ms`,
+  `num_beams`, `vad_threshold`), or bad `hotkey_format` mode back to its
+  default, one warning each. No schema versioning — deliberately.
 - Keys (see the README table for the full list with defaults): press/hotkey —
   `mode`, `tap_ms`, `hotkey` (name or list), `hotkey_language`,
   `hotkey_translate`, `hotkey_format`, `mute_hotkey`, `cough_hotkey`,

@@ -107,7 +107,9 @@ a throwaway venv.
 ## Config
 
 Optional, at `~/.config/lightweight-stt/config.toml`. Anything you leave out
-keeps its default.
+keeps its default. Unknown keys are ignored with a warning, and an
+out-of-range value (a bad `mode`, a negative `tap_ms`) falls back to its
+default with a warning rather than misbehaving later.
 
 | key | default | meaning |
 |---|---|---|
