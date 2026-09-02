@@ -61,6 +61,7 @@ stt/
   init.py        `python -m stt.init` — write a commented starter config.toml
   stats.py       optional transcription-latency timing (latency_stats)
   power.py       read the active power profile (battery_saver)
+  appwatch.py    read the focused window's app id (wlroots) for per-app profiles
   main.py        wiring, single-instance lock, logging, signal handling
 convert.sh       one-off: optimum-cli export openvino (throwaway venv)
 setup.sh         rewritten (runtime deps only + groups + udev + services)
@@ -85,7 +86,8 @@ udev/99-uinput.rules
   `min_speech_ms`, `vad_silence_ms`, `vad_threshold`. Model — `device`,
   `language`, `num_beams`, `vocabulary`, `hallucinations`, `cache_dir`.
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
-  `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`).
+  `trailing_space`, `indicator`, `commands` (phrase → key/literal/`<undo>`),
+  `profiles` / `apps` (focused-window → per-utterance overrides).
   Post-processing — `llm_cleanup`, `llm_endpoint`, `llm_model`.
   Logging — `history`, `privacy`, `latency_stats`. Power — `battery_saver`.
   Collection-valued keys default to empty.
@@ -104,6 +106,17 @@ udev/99-uinput.rules
 - `run()` writes a fully-commented `config.toml` (every line a default) to
   `DEFAULT_PATH`, refusing if it exists. Not the autodetecting first-run wizard
   — just the template half; a test asserts every `Config` field appears in it.
+
+**appwatch.py**
+- `active_app()` — focused window's `app_id` / class, lowercased, via
+  `swaymsg -t get_tree` or `hyprctl activewindow -j`. `None` on GNOME (no IPC)
+  so per-app profiles just don't fire. `main.pick_profile(profiles, apps, app)`
+  is the pure matcher (case-insensitive substring of an `[apps]` key), and
+  `on_press` resolves it once per utterance and stashes the effective
+  `language` / `trailing_space` / `format` / `commands` / cleaner in `st`; both
+  the streaming worker and `on_release` read from `st`. Model-level fields
+  (`vocabulary`, `num_beams`, `device`) aren't overridable — they're fixed at
+  `Transcriber` construction.
 
 **status.py**
 - `run()` prints a snapshot — daemon up (via `ss` for `@lightweight-stt`), mode,

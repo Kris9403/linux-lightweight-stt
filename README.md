@@ -134,6 +134,8 @@ path (it won't overwrite an existing one) — uncomment what you want to change.
 | `hallucinations` | `[]` | extra phrases to drop on top of the built-in silence list (e.g. a noise your fan triggers) |
 | `vocabulary` | `[]` | names / jargon to bias the model toward, e.g. `["Kubernetes", "PostgreSQL"]`. **GPU/CPU only** — the NPU's fixed decoder context can't take the extra tokens, so it's ignored with a warning there |
 | `commands` | `{}` | `[commands]` table mapping a spoken phrase to an action: a literal string (`"new line" = "\n"`), a key (`"press tab" = "<key:tab>"` — enter/tab/escape/backspace/arrows/…), or `"scratch that" = "<undo>"` to delete the last insertion. Matched only when the whole utterance is the phrase |
+| `profiles` | `{}` | `[profiles.NAME]` tables of per-app overrides — any of `language`, `trailing_space`, `llm_cleanup`, `format` (`snake`/`camel`/`raw`), `commands`. See below |
+| `apps` | `{}` | `[apps]` table mapping a focused-window app-id substring to a profile name, e.g. `"code" = "coding"`. **wlroots only** (Sway/Hyprland, via `swaymsg`/`hyprctl`) — GNOME has no way to read the active window without a shell extension, so profiles just don't apply there |
 | `llm_cleanup` | `false` | run each transcript through a local LLM to strip fillers ("um", "uh") and fix punctuation. Adds latency per utterance; fails open (transcript passes through untouched if the endpoint is down). Ignored when `privacy` is on — the transcript would otherwise leave the process |
 | `llm_endpoint` | `http://localhost:11434/v1` | any OpenAI-compatible base URL (Ollama, llama.cpp server, LM Studio) |
 | `llm_model` | `llama3.2` | model name to request from that endpoint |
@@ -147,6 +149,33 @@ path (it won't overwrite an existing one) — uncomment what you want to change.
 | `privacy` | `false` | keep transcripts out of the journal (log lengths only), out of the history file, and out of `llm_cleanup` — the text never leaves the process |
 | `latency_stats` | `false` | log how long each transcription took, and a `count / mean / min / max / p95` summary when the service stops |
 | `battery_saver` | `""` | set to `"pause"` to stop listening whenever the system power profile is `power-saver` (via `powerprofilesctl`); resumes when it changes back. No-op if power-profiles-daemon isn't installed |
+
+## Per-application profiles
+
+On Sway or Hyprland, a profile can change a few settings based on which window is
+focused when you start dictating:
+
+```toml
+[profiles.coding]
+trailing_space = false
+format = "snake"          # dictate identifiers
+llm_cleanup = false
+
+[profiles.writing]
+language = "auto"
+llm_cleanup = true
+
+[apps]
+"code" = "coding"          # app-id / class substring (case-insensitive)
+"Alacritty" = "coding"
+"obsidian" = "writing"
+```
+
+The profile is resolved once per utterance, when the hotkey goes down. Overridable
+keys: `language`, `trailing_space`, `llm_cleanup`, `format`, `commands` — anything
+model-level (`vocabulary`, `num_beams`, `device`) is baked in at startup and isn't
+per-app. On GNOME there's no way to read the focused window without a shell
+extension, so this is inert there.
 
 ## Mic level meter
 
@@ -173,6 +202,13 @@ Anything ffmpeg can read (audio or video). `--device` overrides the configured o
 `POST /transcribe` (raw 16 kHz float32 PCM, or a multipart `audio` file in any
 format ffmpeg reads) and `GET /health`. Run it with
 `./venv/bin/uvicorn stt_server:app`.
+
+## Text expanders (Espanso, AutoKey)
+
+Nothing to configure — dictated text is injected as real key events, so an
+Espanso or AutoKey trigger phrase you speak expands exactly as if you'd typed
+it. If you don't want that, use a `commands` entry or dictate the trigger with a
+space in it.
 
 ## Development
 
