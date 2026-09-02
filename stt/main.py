@@ -15,6 +15,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from .appwatch import active_app
 from .audio import EndpointDetector, Recorder
 from .cleanup import clean_text
 from .config import load
@@ -167,15 +168,30 @@ def run() -> int:
     timings = Timings() if cfg.latency_stats else None
     if timings is not None:
         log.info("latency stats on")
-    st = {"lang": cfg.language, "translate": False, "fmt": None}   # current streaming session
+
+    def resolve_profile() -> tuple[dict, str | None]:
+        """The [profiles] entry for the focused window, or ({}, app)."""
+        if not cfg.profiles or not cfg.apps:
+            return {}, None
+        app = active_app()
+        if not app:
+            return {}, None
+        for needle, pname in cfg.apps.items():
+            if needle.lower() in app:
+                return cfg.profiles.get(pname, {}), app
+        return {}, app
+
+    # effective per-utterance settings; on_press refreshes them from the profile
+    st = {"lang": cfg.language, "translate": False, "fmt": None,
+          "trailing": cfg.trailing_space, "commands": cfg.commands, "cleaner": cleaner}
     segments: queue.Queue = queue.Queue()
 
     def _emit(pcm) -> None:
         try:
-            emit_segment(pcm, transcriber, injector, indicator, cfg.trailing_space,
+            emit_segment(pcm, transcriber, injector, indicator, st["trailing"],
                          language=st["lang"], translate=st["translate"],
                          record=record, redact=cfg.privacy, quiet=True,
-                         commands=cfg.commands, cleaner=cleaner, timings=timings,
+                         commands=st["commands"], cleaner=st["cleaner"], timings=timings,
                          text_format=st["fmt"])
         except InjectionFailed as exc:
             log.error("could not type the result: %s", exc)
@@ -184,10 +200,17 @@ def run() -> int:
 
     def on_press(language: str, translate: bool, fmt: str | None = None) -> None:
         try:
-            log.info("hotkey down — listening [%s%s%s]", language,
-                     "→en" if translate else "", f" {fmt}" if fmt else "")
-            st["lang"], st["translate"], st["fmt"] = language, translate, fmt
-            detail = (language + ("→en" if translate else "")) if language != cfg.language or translate else None
+            prof, app = resolve_profile()
+            st["lang"] = prof.get("language", language)
+            st["translate"] = translate
+            st["fmt"] = prof.get("format", fmt)
+            st["trailing"] = prof.get("trailing_space", cfg.trailing_space)
+            st["commands"] = prof.get("commands", cfg.commands)
+            st["cleaner"] = cleaner if prof.get("llm_cleanup", cfg.llm_cleanup) else None
+            log.info("hotkey down — listening [%s%s%s]%s", st["lang"],
+                     "→en" if translate else "", f" {st['fmt']}" if st["fmt"] else "",
+                     f"  ({app} profile)" if prof else "")
+            detail = (st["lang"] + ("→en" if translate else "")) if st["lang"] != cfg.language or translate else None
             indicator.set("listening", detail=detail)
             recorder.start()
         except Exception:
@@ -201,9 +224,9 @@ def run() -> int:
             return
         try:
             handle_utterance(recorder, transcriber, injector, indicator,
-                             cfg.trailing_space, language=language, translate=translate,
-                             record=record, redact=cfg.privacy, commands=cfg.commands,
-                             cleaner=cleaner, timings=timings, text_format=fmt)
+                             st["trailing"], language=st["lang"], translate=st["translate"],
+                             record=record, redact=cfg.privacy, commands=st["commands"],
+                             cleaner=st["cleaner"], timings=timings, text_format=st["fmt"])
         except InjectionFailed as exc:
             log.error("could not type the result: %s", exc)
             indicator.set("error")
