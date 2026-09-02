@@ -111,6 +111,9 @@ keeps its default. Unknown keys are ignored with a warning, and an
 out-of-range value (a bad `mode`, a negative `tap_ms`) falls back to its
 default with a warning rather than misbehaving later.
 
+`./venv/bin/python -m stt.init` drops a fully commented starter file at that
+path (it won't overwrite an existing one) — uncomment what you want to change.
+
 | key | default | meaning |
 |---|---|---|
 | `mode` | `hybrid` | `hybrid` (hold to talk, or quick-tap to latch), `hold`, `toggle`, or `streaming` (tap once, keep talking — each phrase is typed as you pause, tap again to stop) |
