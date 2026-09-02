@@ -64,6 +64,16 @@ def test_hotkey_translate_loads(tmp_path):
     assert load(path=f).hotkey_translate == ["KEY_SCROLLLOCK"]
 
 
+def test_hotkey_format_loads(tmp_path):
+    f = tmp_path / "c.toml"
+    f.write_text('[hotkey_format]\nKEY_SCROLLLOCK = "snake"\n')
+    assert load(path=f).hotkey_format == {"KEY_SCROLLLOCK": "snake"}
+
+
+def test_hotkey_format_defaults_empty():
+    assert load(path=Path("/nonexistent/c.toml")).hotkey_format == {}
+
+
 def test_vocabulary_loads(tmp_path):
     f = tmp_path / "c.toml"
     f.write_text('vocabulary = ["Kubernetes", "Anthropic"]\n')
