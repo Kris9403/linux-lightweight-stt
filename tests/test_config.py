@@ -139,6 +139,42 @@ def test_unknown_key_is_ignored_with_warning(tmp_path, caplog):
     assert any("bogus_key" in r.message for r in caplog.records)
 
 
+def test_bad_enum_values_fall_back_to_defaults(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('mode = "turbo"\ndevice = "TPU"\nindicator = "flash"\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.mode == "hybrid" and cfg.device == "NPU" and cfg.indicator == "both"
+    assert "mode" in caplog.text and "device" in caplog.text
+
+
+def test_non_positive_or_wrong_type_numbers_fall_back(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('tap_ms = "fast"\nnum_beams = 0\nvad_threshold = -0.1\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.tap_ms == 350 and cfg.num_beams == 1 and cfg.vad_threshold == 0.025
+    assert "tap_ms" in caplog.text
+
+
+def test_invalid_hotkey_format_modes_are_dropped(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('[hotkey_format]\nKEY_A = "snake"\nKEY_B = "kebab"\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.hotkey_format == {"KEY_A": "snake"}
+    assert "kebab" in caplog.text or "KEY_B" in caplog.text
+
+
+def test_a_valid_config_produces_no_warnings(tmp_path, caplog):
+    f = tmp_path / "c.toml"
+    f.write_text('mode = "toggle"\nnum_beams = 3\nbattery_saver = "pause"\n')
+    with caplog.at_level(logging.WARNING):
+        cfg = load(path=f)
+    assert cfg.mode == "toggle" and cfg.num_beams == 3
+    assert caplog.records == []
+
+
 def test_cache_dir_is_expanded(tmp_path):
     cfg_file = tmp_path / "config.toml"
     cfg_file.write_text('cache_dir = "~/somewhere/ov"\n')

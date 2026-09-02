@@ -49,6 +49,42 @@ class Config:
     model_dir: str = str(_REPO_ROOT / "whisper-small-ov")
 
 
+_ENUMS = {
+    "mode": {"hybrid", "hold", "toggle", "streaming"},
+    "device": {"NPU", "GPU", "CPU"},
+    "inject_method": {"auto", "ydotool", "paste", "xdotool"},
+    "indicator": {"notify", "beep", "both", "off"},
+    "battery_saver": {"", "pause"},
+}
+_POSITIVE = ("tap_ms", "paste_threshold", "paste_settle_ms", "min_speech_ms",
+             "vad_silence_ms", "num_beams", "vad_threshold")
+_FORMATS = {"snake", "camel", "raw"}
+
+
+def _validate(cfg: Config) -> Config:
+    """Replace out-of-range enum/number values with the default, warning once
+    each — so one typo in the TOML doesn't surface as odd behaviour later."""
+    default = Config()
+    fixed: dict = {}
+    for key, allowed in _ENUMS.items():
+        if getattr(cfg, key) not in allowed:
+            fixed[key] = getattr(default, key)
+            log.warning("config %s=%r is not one of %s — using %r",
+                        key, getattr(cfg, key), sorted(allowed), fixed[key])
+    for key in _POSITIVE:
+        v = getattr(cfg, key)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            fixed[key] = getattr(default, key)
+            log.warning("config %s=%r must be a positive number — using %r",
+                        key, v, fixed[key])
+    bad = {k: v for k, v in cfg.hotkey_format.items() if v not in _FORMATS}
+    if bad:
+        fixed["hotkey_format"] = {k: v for k, v in cfg.hotkey_format.items() if v in _FORMATS}
+        log.warning("config hotkey_format has unknown modes %s — dropping them (use %s)",
+                    bad, sorted(_FORMATS))
+    return replace(cfg, **fixed) if fixed else cfg
+
+
 def load(path: Path | None = None) -> Config:
     path = path or DEFAULT_PATH
 
@@ -63,5 +99,5 @@ def load(path: Path | None = None) -> Config:
             else:
                 log.warning("ignoring unknown config key: %s", key)
 
-    cfg = replace(Config(), **overrides)
+    cfg = _validate(replace(Config(), **overrides))
     return replace(cfg, cache_dir=str(Path(cfg.cache_dir).expanduser()))
