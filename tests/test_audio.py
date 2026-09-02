@@ -98,6 +98,21 @@ def test_take_returns_buffer_without_stopping_the_stream():
     assert rec.take().shape == (800,)                 # buffer was cleared
 
 
+def test_rebind_reopens_a_fresh_stream():
+    rec = Recorder()
+    rec.start()
+    first = FakeStream.instances[-1]
+    rec.rebind()
+    assert first.closed is True
+    assert FakeStream.instances[-1] is not first
+    assert FakeStream.instances[-1].started is True
+
+
+def test_rebind_is_a_noop_before_start():
+    Recorder().rebind()
+    assert FakeStream.instances == []
+
+
 def test_set_paused_discards_audio_until_resumed():
     rec = Recorder()
     rec.start()
