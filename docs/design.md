@@ -57,6 +57,7 @@ stt/
   doctor.py      `python -m stt.doctor` — checks groups/NPU/ydotoold/uinput/model/mic
   meter.py       `python -m stt.meter` — live mic RMS bar for tuning vad_threshold
   status.py      `python -m stt.status` — config + environment snapshot (no NPU)
+  textfmt.py     snake/camel/raw reshaping for hotkey_format
   stats.py       optional transcription-latency timing (latency_stats)
   power.py       read the active power profile (battery_saver)
   main.py        wiring, single-instance lock, logging, signal handling
@@ -74,7 +75,8 @@ udev/99-uinput.rules
   merges over defaults. Unknown keys warn, don't crash.
 - Keys (see the README table for the full list with defaults): press/hotkey —
   `mode`, `tap_ms`, `hotkey` (name or list), `hotkey_language`,
-  `hotkey_translate`, `mute_hotkey`, `keyboard`. Audio — `audio_device`,
+  `hotkey_translate`, `hotkey_format`, `mute_hotkey`, `cough_hotkey`,
+  `keyboard`. Audio — `audio_device`,
   `min_speech_ms`, `vad_silence_ms`, `vad_threshold`. Model — `device`,
   `language`, `num_beams`, `vocabulary`, `hallucinations`, `cache_dir`.
   Output — `inject_method`, `paste_threshold`, `paste_settle_ms`,
@@ -176,8 +178,11 @@ udev/99-uinput.rules
   fires `on_endpoint` on each pause; `main.py`'s worker drains a queue and
   transcribes each segment. `mute_hotkey` pauses the whole listener.
 - A session is **locked** to `_active_code`; events from any other hotkey are
-  dropped until it ends. Each key's language (`hotkey_language` or `language`)
-  is stashed on start and handed to `on_release`.
+  dropped until it ends. Each key's language (`hotkey_language` or `language`),
+  translate flag (`hotkey_translate`) and output format (`hotkey_format` —
+  `snake`/`camel`/`raw`, else `None`) are stashed on start and handed to
+  `on_press`/`on_release`, which pass them through `emit_segment`; `textfmt.apply_format`
+  reshapes the text after the cleaner, before typing.
 - `mute_hotkey` toggles `_muted` (blocks all dictation keys); `cough_hotkey`
   fires `on_cough(True/False)` on its down/up so `main.py` can call
   `Recorder.set_paused()` — both are checked before the session lock, so they

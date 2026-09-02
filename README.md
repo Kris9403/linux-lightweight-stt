@@ -116,6 +116,7 @@ keeps its default.
 | `hotkey` | `KEY_F23` | evdev key name to hold, or a list — `["KEY_F23", "KEY_SCROLLLOCK"]` — so a laptop key and an external one both work |
 | `hotkey_language` | `{}` | table mapping a key to a language, e.g. `[hotkey_language]` then `KEY_SCROLLLOCK = "hi"` — that key dictates in Hindi, everything else uses `language`. Keys here are listened for even if not in `hotkey` |
 | `hotkey_translate` | `[]` | keys whose output is translated to English — e.g. `hotkey_translate = ["KEY_SCROLLLOCK"]` with `KEY_SCROLLLOCK = "hi"` means "speak Hindi, type English" |
+| `hotkey_format` | `{}` | table mapping a key to `snake`, `camel`, or `raw` — that key's utterance is reshaped before typing (`"my user name"` → `my_user_name` / `myUserName`; `raw` just lowercases and drops punctuation). Handy for dictating identifiers while coding. Listened for even if not in `hotkey` |
 | `mute_hotkey` | `""` | a key that pauses/resumes the whole listener (indicator goes to "off"). Pick one you don't dictate with, e.g. `"KEY_CAPSLOCK"` |
 | `cough_hotkey` | `""` | a key to **hold** while you clear your throat or talk to someone — incoming audio is dropped until you let go. Mostly for `streaming` mode; the buffer is dumped and the endpointer resets on release |
 | `device` | `NPU` | OpenVINO device — `NPU`, `GPU`, or `CPU` |
