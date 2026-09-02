@@ -58,6 +58,17 @@ def _norm(text: str) -> str:
     return text.strip().lower().rstrip(".!?").strip()
 
 
+def pick_profile(profiles: dict, apps: dict, app: str | None) -> dict:
+    """The [profiles] entry whose [apps] key is a substring of the focused
+    window's app id, or {} when nothing matches."""
+    if not profiles or not apps or not app:
+        return {}
+    for needle, name in apps.items():
+        if needle.lower() in app:
+            return profiles.get(name, {})
+    return {}
+
+
 def run_command(action: str, injector) -> None:
     """`<undo>`, `<key:NAME>`, or a literal string to type (e.g. '\\n', '. ')."""
     if action == "<undo>":
@@ -170,16 +181,8 @@ def run() -> int:
         log.info("latency stats on")
 
     def resolve_profile() -> tuple[dict, str | None]:
-        """The [profiles] entry for the focused window, or ({}, app)."""
-        if not cfg.profiles or not cfg.apps:
-            return {}, None
-        app = active_app()
-        if not app:
-            return {}, None
-        for needle, pname in cfg.apps.items():
-            if needle.lower() in app:
-                return cfg.profiles.get(pname, {}), app
-        return {}, app
+        app = active_app() if (cfg.profiles and cfg.apps) else None
+        return pick_profile(cfg.profiles, cfg.apps, app), app
 
     # effective per-utterance settings; on_press refreshes them from the profile
     st = {"lang": cfg.language, "translate": False, "fmt": None,
