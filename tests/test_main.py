@@ -3,7 +3,7 @@ import pytest
 
 from stt.inject import InjectionFailed
 from stt.main import (single_instance_lock, handle_utterance, emit_segment,
-                      run_command, AlreadyRunning)
+                      run_command, pick_profile, AlreadyRunning)
 
 
 class FakeRecorder:
@@ -116,6 +116,22 @@ def test_empty_transcription_is_not_recorded(tmp_path):
     hist = tmp_path / "h.log"
     _run("", record=hist)
     assert not hist.exists()
+
+
+_PROFILES = {"coding": {"trailing_space": False, "format": "snake"},
+             "chat": {"language": "auto"}}
+_APPS = {"code": "coding", "Slack": "chat"}
+
+
+def test_pick_profile_matches_a_substring_case_insensitively():
+    assert pick_profile(_PROFILES, _APPS, "org.gnome.code") == _PROFILES["coding"]
+    assert pick_profile(_PROFILES, _APPS, "slack") == _PROFILES["chat"]
+
+
+def test_pick_profile_returns_empty_on_no_match_or_no_app():
+    assert pick_profile(_PROFILES, _APPS, "firefox") == {}
+    assert pick_profile(_PROFILES, _APPS, None) == {}
+    assert pick_profile({}, {}, "code") == {}
 
 
 def test_run_command_dispatches_undo_key_and_literal():

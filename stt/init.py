@@ -57,6 +57,15 @@ TEMPLATE = """\
 # "press tab" = "<key:tab>"
 # "scratch that" = "<undo>"
 
+# --- per-application profiles (wlroots only; needs a shell extension on GNOME) ---
+# [profiles.coding]
+# trailing_space = false
+# format = "snake"            # language | trailing_space | llm_cleanup | format | commands
+# llm_cleanup = false
+# [apps]
+# "code" = "coding"           # focused-window app-id substring -> profile name
+# "Alacritty" = "coding"
+
 # --- post-processing ---
 # llm_cleanup = false
 # llm_endpoint = "http://localhost:11434/v1"
